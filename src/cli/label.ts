@@ -11,13 +11,12 @@ import { loadProfiles, saveProfiles } from "../speakers/profiles.js";
 export async function runLabel(noteArg: string): Promise<void> {
   const config = loadConfig();
 
-  // Resolve note path: could be just a filename, relative, or absolute
+  // Resolve note path: could be absolute, relative to cwd, or relative to vault root
   let notePath: string;
   if (existsSync(noteArg)) {
     notePath = resolve(noteArg);
   } else {
-    // Try inside the vault notes folder
-    const inVault = join(config.vaultPath, config.vaultNotesFolder, noteArg);
+    const inVault = join(config.vaultPath, noteArg);
     if (existsSync(inVault)) {
       notePath = resolve(inVault);
     } else {

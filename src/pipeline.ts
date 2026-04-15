@@ -11,8 +11,9 @@ import {
 } from "./notes/writer.js";
 import { buildSpeakerMap, loadProfiles } from "./speakers/profiles.js";
 import { recognizeSpeakers } from "./speakers/eagle.js";
-import { decodeToPcm } from "./audio.js";
+import { convertToWav, decodeToPcm } from "./audio.js";
 import { saveRecordingMeta } from "./state.js";
+import { log, warn } from "./log.js";
 import type { Config } from "./config.js";
 
 export async function processRecording(
@@ -21,26 +22,46 @@ export async function processRecording(
   config: Config,
 ): Promise<string> {
   const recordingDate = new Date(recording.start_time);
-  console.log(
+  log(
     `Processing: "${recording.filename}" (${recordingDate.toLocaleDateString()})`,
   );
+  log(`  Recording metadata: id=${recording.id} filetype=${recording.filetype} filesize=${recording.filesize} duration=${recording.duration}ms fullname=${recording.fullname}`);
 
   // 1. Download audio from Plaud
-  console.log("  Downloading audio...");
+  log("  Downloading audio...");
   const audioBuffer = await plaudClient.downloadRecording(recording.id);
-  console.log(`  Downloaded ${(audioBuffer.length / 1024 / 1024).toFixed(1)}MB`);
+  log(`  Downloaded ${(audioBuffer.length / 1024 / 1024).toFixed(1)}MB`);
 
-  // 2. Transcribe with AssemblyAI (includes diarization)
+  // Save raw audio for debugging
+  const { writeFileSync, mkdirSync, existsSync } = await import("fs");
+  const { join } = await import("path");
+  const audioDir = join(config.dataDir, "audio");
+  if (!existsSync(audioDir)) mkdirSync(audioDir, { recursive: true });
+  const ext = recording.filetype || recording.fullname?.split(".").pop() || "bin";
+  const audioPath = join(audioDir, `${recording.id}.${ext}`);
+  writeFileSync(audioPath, audioBuffer);
+  log(`  Saved audio to: ${audioPath}`);
+
+  // 2. Convert to WAV for reliable transcription (Plaud OGG files fail on AssemblyAI)
+  log("  Converting audio to WAV...");
+  const wavBuffer = await convertToWav(audioBuffer);
+  log(`  Converted: ${(wavBuffer.length / 1024 / 1024).toFixed(1)}MB WAV`);
+  const wavPath = join(audioDir, `${recording.id}.wav`);
+  writeFileSync(wavPath, wavBuffer);
+  log(`  Saved WAV to: ${wavPath}`);
+
+  // 3. Transcribe with AssemblyAI (includes diarization)
   const utterances = await transcribeAudio(
-    audioBuffer,
+    wavBuffer,
     config.assemblyAiApiKey,
+    "wav",
   );
-  console.log(
+  log(
     `  Transcribed: ${utterances.length} utterances from ${new Set(utterances.map((u) => u.speaker)).size} speakers`,
   );
 
   if (utterances.length === 0) {
-    console.warn("  No utterances found, skipping note generation");
+    warn("  No utterances found, skipping note generation");
     return "";
   }
 
@@ -52,7 +73,7 @@ export async function processRecording(
     const profileNames = Object.keys(profiles);
 
     if (profileNames.length > 0) {
-      console.log(`  Running speaker recognition (${profileNames.length} enrolled profiles)...`);
+      log(`  Running speaker recognition (${profileNames.length} enrolled profiles)...`);
       try {
         const pcm = await decodeToPcm(audioBuffer, 16000);
         const profileBytes = profileNames.map(
@@ -69,12 +90,12 @@ export async function processRecording(
           const matches = [...recognizedSpeakers.entries()]
             .map(([label, name]) => `${label}→${name}`)
             .join(", ");
-          console.log(`  Recognized speakers: ${matches}`);
+          log(`  Recognized speakers: ${matches}`);
         } else {
-          console.log("  No speakers matched enrolled profiles");
+          log("  No speakers matched enrolled profiles");
         }
       } catch (error) {
-        console.warn("  Speaker recognition failed, continuing without it:", error);
+        warn("  Speaker recognition failed, continuing without it:", error);
       }
     }
   }
@@ -91,16 +112,16 @@ export async function processRecording(
   const transcriptText = buildTranscriptText(utterances, speakerMap);
 
   // 6. Get vault folder structure for smart routing
-  console.log("  Scanning vault folders...");
+  log("  Scanning vault folders...");
   let vaultFolders = "";
   try {
     vaultFolders = getVaultFolderTree(config.vaultPath);
   } catch (error) {
-    console.warn("  Could not scan vault folders:", error);
+    warn("  Could not scan vault folders:", error);
   }
 
   // 7. Summarize with Gemini (includes folder selection)
-  console.log("  Generating summary...");
+  log("  Generating summary...");
   const template = loadTemplate(
     config.templatesPath,
     config.selectedTemplate,
@@ -115,7 +136,7 @@ export async function processRecording(
 
   // Use LLM-chosen folder, fall back to config default
   const targetFolder = folder || config.vaultNotesFolder;
-  console.log(`  Target folder: ${targetFolder}`);
+  log(`  Target folder: ${targetFolder}`);
 
   // 8. Build markdown and write to vault
   const filePath = writeNote(
@@ -139,6 +160,6 @@ export async function processRecording(
     })),
   });
 
-  console.log(`  Saved: ${filePath}`);
+  log(`  Saved: ${filePath}`);
   return filePath;
 }

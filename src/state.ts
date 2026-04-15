@@ -3,6 +3,7 @@ import { join } from "path";
 
 const STATE_FILE = "processed-recordings.json";
 const META_FILE = "recording-meta.json";
+const HISTORY_FILE = "processing-history.json";
 
 interface State {
   processedIds: string[];
@@ -68,6 +69,47 @@ export function getRecordingMeta(
 ): RecordingMeta | null {
   const store = loadMetaStore(dataDir);
   return store[noteFilePath] ?? null;
+}
+
+// --- Processing History (for batch summaries) ---
+
+export interface ProcessedNote {
+  filePath: string;
+  recordingName: string;
+  processedAt: string; // ISO timestamp
+  status: "saved" | "skipped";
+}
+
+type History = ProcessedNote[];
+
+function loadHistory(dataDir: string): History {
+  ensureDataDir(dataDir);
+  const path = join(dataDir, HISTORY_FILE);
+  if (!existsSync(path)) return [];
+  return JSON.parse(readFileSync(path, "utf-8")) as History;
+}
+
+function saveHistory(dataDir: string, history: History): void {
+  const path = join(dataDir, HISTORY_FILE);
+  writeFileSync(path, JSON.stringify(history, null, 2));
+}
+
+export function addToHistory(
+  dataDir: string,
+  entry: ProcessedNote,
+): void {
+  const history = loadHistory(dataDir);
+  history.push(entry);
+  saveHistory(dataDir, history);
+}
+
+export function getRecentHistory(
+  dataDir: string,
+  hoursBack = 72,
+): ProcessedNote[] {
+  const history = loadHistory(dataDir);
+  const cutoff = Date.now() - hoursBack * 60 * 60 * 1000;
+  return history.filter((e) => new Date(e.processedAt).getTime() >= cutoff);
 }
 
 function ensureDataDir(dataDir: string): void {

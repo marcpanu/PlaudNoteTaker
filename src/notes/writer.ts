@@ -86,7 +86,7 @@ export function writeNote(
 ${lines.map((l) => `> ${l}`).join("\n")}
 >
 > \`\`\`
-> plaud label "${filename}"
+> npx tsx src/index.ts label "${filePath}"
 > \`\`\`
 
 `;
@@ -100,8 +100,7 @@ ${lines.map((l) => `> ${l}`).join("\n")}
     })
     .join("\n\n");
 
-  const markdown = `---
-## ${noteTitle}
+  const markdown = `## ${noteTitle}
 *${dateStr} at ${timeStr}*
 
 ${unknownSection}${notesBody}
@@ -110,9 +109,7 @@ ${unknownSection}${notesBody}
 
 ### Transcript
 
-${transcript}
-
----`;
+${transcript}`;
 
   writeFileSync(filePath, markdown, "utf-8");
   return filePath;

@@ -5,6 +5,49 @@ import { tmpdir } from "os";
 import { randomUUID } from "crypto";
 
 /**
+ * Convert audio buffer to WAV format for reliable upload to transcription services.
+ * Some services can't decode Plaud's OGG files directly.
+ */
+export function convertToWav(audioBuffer: Buffer): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const tmpInput = join(tmpdir(), `plaud-${randomUUID()}.audio`);
+    const tmpOutput = join(tmpdir(), `plaud-${randomUUID()}.wav`);
+
+    writeFileSync(tmpInput, audioBuffer);
+
+    execFile(
+      "ffmpeg",
+      [
+        "-i", tmpInput,
+        "-acodec", "pcm_s16le",
+        "-ac", "1",
+        "-ar", "16000",
+        "-y",
+        tmpOutput,
+      ],
+      { maxBuffer: 500 * 1024 * 1024 },
+      (error, _stdout, stderr) => {
+        try { unlinkSync(tmpInput); } catch { /* ignore */ }
+
+        if (error) {
+          try { unlinkSync(tmpOutput); } catch { /* ignore */ }
+          reject(new Error(`ffmpeg WAV conversion failed: ${stderr}`));
+          return;
+        }
+
+        try {
+          const wavBuffer = readFileSync(tmpOutput);
+          unlinkSync(tmpOutput);
+          resolve(wavBuffer);
+        } catch (err) {
+          reject(err);
+        }
+      },
+    );
+  });
+}
+
+/**
  * Decode audio buffer (any format ffmpeg supports) to raw PCM Int16 mono
  * at the specified sample rate. Requires ffmpeg installed.
  */

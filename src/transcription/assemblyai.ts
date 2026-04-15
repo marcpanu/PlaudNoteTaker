@@ -1,3 +1,5 @@
+import { log, warn } from "../log.js";
+
 export interface Utterance {
   speaker: string;
   text: string;
@@ -14,36 +16,68 @@ interface TranscriptResponse {
 
 const API_BASE = "https://api.assemblyai.com/v2";
 const POLL_INTERVAL = 3000;
+const MAX_RETRIES = 2;
 
 export async function transcribeAudio(
   audioBuffer: Buffer,
   apiKey: string,
+  fileExtension?: string,
 ): Promise<Utterance[]> {
-  console.log("  Uploading audio to AssemblyAI...");
-  const uploadUrl = await uploadAudio(audioBuffer, apiKey);
+  log("  Uploading audio to AssemblyAI...");
+  const uploadUrl = await uploadAudio(audioBuffer, apiKey, fileExtension);
 
-  console.log("  Submitting transcription job...");
-  const transcriptId = await submitTranscription(uploadUrl, apiKey);
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      log(`  Retrying transcription (attempt ${attempt + 1}/${MAX_RETRIES + 1})...`);
+    }
 
-  console.log("  Waiting for transcription...");
-  const result = await pollTranscription(transcriptId, apiKey);
+    log("  Submitting transcription job...");
+    const transcriptId = await submitTranscription(uploadUrl, apiKey);
 
-  if (result.status === "error") {
-    throw new Error(`Transcription failed: ${result.error}`);
+    log(`  Waiting for transcription (id: ${transcriptId})...`);
+    const result = await pollTranscription(transcriptId, apiKey);
+
+    if (result.status === "completed") {
+      return result.utterances ?? [];
+    }
+
+    if (result.status === "error") {
+      const isRetryable = result.error?.includes("Internal server error");
+      if (isRetryable && attempt < MAX_RETRIES) {
+        warn(`  Transcription error (retryable): ${result.error}`);
+        continue;
+      }
+      throw new Error(`Transcription failed: ${result.error}`);
+    }
   }
 
-  return result.utterances ?? [];
+  throw new Error("Transcription failed after retries");
 }
+
+const MIME_TYPES: Record<string, string> = {
+  ogg: "audio/ogg",
+  opus: "audio/opus",
+  mp3: "audio/mpeg",
+  wav: "audio/wav",
+  flac: "audio/flac",
+  m4a: "audio/mp4",
+  aac: "audio/aac",
+  wma: "audio/x-ms-wma",
+};
 
 async function uploadAudio(
   audioBuffer: Buffer,
   apiKey: string,
+  fileExtension?: string,
 ): Promise<string> {
+  const contentType = (fileExtension && MIME_TYPES[fileExtension]) || "application/octet-stream";
+  log(`  Upload content-type: ${contentType}`);
+
   const response = await fetch(`${API_BASE}/upload`, {
     method: "POST",
     headers: {
       authorization: apiKey,
-      "Content-Type": "application/octet-stream",
+      "Content-Type": contentType,
     },
     body: new Uint8Array(audioBuffer),
   });
