@@ -1,0 +1,24 @@
+{
+  "name": "plaude-note-taker",
+  "version": "0.1.0",
+  "description": "Plaud device audio → transcription/diarization → LLM summary → Obsidian vault",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "dev:watch": "tsx watch src/index.ts"
+  },
+  "keywords": [],
+  "author": "Marc Panu",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "dotenv": "^17.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2"
+  }
+}
