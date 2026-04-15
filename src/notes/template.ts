@@ -5,7 +5,12 @@ export const DEFAULT_TEMPLATE = `You are a meeting notes assistant. Given the fo
 
 ## Output format:
 
-Your response MUST begin with a single-line title for the meeting on the first line, prefixed with "# " (markdown H1). The title should be a concise, descriptive summary of the meeting topic (e.g., "# Q2 Marketing Strategy Review"). Do NOT include a date in the title.
+Your response MUST begin with two special lines before anything else:
+
+Line 1 — the target folder, prefixed with "FOLDER: ". Choose the most appropriate folder from the list provided below. If no folder is a good fit, suggest a new subfolder path that fits the content.
+Line 2 — the title, prefixed with "# " (markdown H1). A concise, descriptive summary of the meeting topic (e.g., "# Q2 Marketing Strategy Review"). Do NOT include a date in the title.
+
+Then include the following sections:
 
 ### Attendees
 List each speaker with their name. If their role or organization is mentioned in the conversation, include it.
@@ -16,6 +21,8 @@ Provide a clear overall summary of the meeting. Use a mix of prose and bullet po
 ### Action Items
 List action items as a task list. Tag each with the owner.
 - [ ] **Owner:** Description of the action item
+
+{{vault_folders}}
 
 ## Transcript:
 {{transcript}}`;

@@ -3,6 +3,7 @@ import { PlaudClient } from "./plaud/client.js";
 import { transcribeAudio } from "./transcription/assemblyai.js";
 import { summarizeTranscript } from "./summarization/gemini.js";
 import { loadTemplate } from "./notes/template.js";
+import { getVaultFolderTree } from "./notes/vault.js";
 import {
   buildTranscriptText,
   extractTitle,
@@ -82,7 +83,6 @@ export async function processRecording(
   const speakerLabels = utterances.map((u) => u.speaker);
   const speakerMap = buildSpeakerMap(speakerLabels, recognizedSpeakers);
 
-  // Identify which speakers are still unknown (not recognized by Eagle)
   const unknownSpeakers = [...speakerMap.entries()]
     .filter(([, name]) => name.startsWith("Speaker "))
     .map(([label]) => label);
@@ -90,33 +90,45 @@ export async function processRecording(
   // 5. Build transcript text for LLM
   const transcriptText = buildTranscriptText(utterances, speakerMap);
 
-  // 6. Summarize with Gemini
+  // 6. Get vault folder structure for smart routing
+  console.log("  Scanning vault folders...");
+  let vaultFolders = "";
+  try {
+    vaultFolders = getVaultFolderTree(config.vaultPath);
+  } catch (error) {
+    console.warn("  Could not scan vault folders:", error);
+  }
+
+  // 7. Summarize with Gemini (includes folder selection)
   console.log("  Generating summary...");
   const template = loadTemplate(
     config.templatesPath,
     config.selectedTemplate,
   );
-  const geminiOutput = await summarizeTranscript(
+  const { folder, rawOutput } = await summarizeTranscript(
     transcriptText,
     template,
+    vaultFolders,
     config.geminiApiKey,
     config.geminiModel,
   );
 
-  // 7. Build markdown and write to vault
-  const title = extractTitle(geminiOutput);
-  const recordingDate2 = recordingDate;
+  // Use LLM-chosen folder, fall back to config default
+  const targetFolder = folder || config.vaultNotesFolder;
+  console.log(`  Target folder: ${targetFolder}`);
+
+  // 8. Build markdown and write to vault
   const filePath = writeNote(
     config.vaultPath,
-    config.vaultNotesFolder,
-    geminiOutput,
+    targetFolder,
+    rawOutput,
     utterances,
     speakerMap,
     unknownSpeakers,
-    recordingDate2,
+    recordingDate,
   );
 
-  // 8. Save recording metadata for later use by `plaud label`
+  // 9. Save recording metadata for later use by `plaud label`
   saveRecordingMeta(config.dataDir, filePath, {
     recordingId: recording.id,
     utterances: utterances.map((u) => ({
