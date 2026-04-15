@@ -14,6 +14,7 @@
   "license": "MIT",
   "type": "module",
   "dependencies": {
+    "@picovoice/eagle-node": "^3.0.0",
     "dotenv": "^17.4.2"
   },
   "devDependencies": {

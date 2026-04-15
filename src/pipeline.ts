@@ -9,7 +9,9 @@ import {
   extractTitle,
   writeNote,
 } from "./notes/writer.js";
-import { buildSpeakerMap } from "./speakers/profiles.js";
+import { buildSpeakerMap, loadProfiles } from "./speakers/profiles.js";
+import { recognizeSpeakers } from "./speakers/eagle.js";
+import { decodeToPcm } from "./audio.js";
 import { config } from "./config.js";
 
 export async function processRecording(
@@ -40,16 +42,50 @@ export async function processRecording(
     return "";
   }
 
-  // 3. Build speaker map
-  // TODO: Integrate Picovoice Eagle for automatic speaker identification
-  // For now, use AssemblyAI's speaker labels (Speaker A, Speaker B, etc.)
-  const speakerLabels = utterances.map((u) => u.speaker);
-  const speakerMap = buildSpeakerMap(speakerLabels, null);
+  // 3. Speaker recognition via Picovoice Eagle (if configured)
+  let recognizedSpeakers: Map<string, string> | null = null;
 
-  // 4. Build transcript text for LLM
+  if (config.picovoiceAccessKey) {
+    const profiles = loadProfiles(config.dataDir);
+    const profileNames = Object.keys(profiles);
+
+    if (profileNames.length > 0) {
+      console.log(`  Running speaker recognition (${profileNames.length} enrolled profiles)...`);
+      try {
+        // Decode audio to PCM for Eagle (Eagle needs raw PCM, not compressed)
+        const pcm = await decodeToPcm(audioBuffer, 16000);
+        const profileBytes = profileNames.map(
+          (name) => Uint8Array.from(Buffer.from(profiles[name], "base64")),
+        );
+        recognizedSpeakers = recognizeSpeakers(
+          pcm,
+          utterances,
+          profileNames,
+          profileBytes,
+          config.picovoiceAccessKey,
+        );
+        if (recognizedSpeakers.size > 0) {
+          const matches = [...recognizedSpeakers.entries()]
+            .map(([label, name]) => `${label}→${name}`)
+            .join(", ");
+          console.log(`  Recognized speakers: ${matches}`);
+        } else {
+          console.log("  No speakers matched enrolled profiles");
+        }
+      } catch (error) {
+        console.warn("  Speaker recognition failed, continuing without it:", error);
+      }
+    }
+  }
+
+  // 4. Build speaker map (recognized names or fallback to "Speaker A" labels)
+  const speakerLabels = utterances.map((u) => u.speaker);
+  const speakerMap = buildSpeakerMap(speakerLabels, recognizedSpeakers);
+
+  // 5. Build transcript text for LLM
   const transcriptText = buildTranscriptText(utterances, speakerMap);
 
-  // 5. Summarize with Gemini
+  // 6. Summarize with Gemini
   console.log("  Generating summary...");
   const template = loadTemplate(
     config.templatesPath,
@@ -62,7 +98,7 @@ export async function processRecording(
     config.geminiModel,
   );
 
-  // 6. Build markdown and write to vault
+  // 7. Build markdown and write to vault
   const markdown = buildMarkdown(
     geminiOutput,
     utterances,
