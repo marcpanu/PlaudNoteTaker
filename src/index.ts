@@ -1,67 +1,74 @@
-import { config } from "./config.js";
-import { PlaudClient } from "./plaud/client.js";
-import { loadProcessedIds, saveProcessedId } from "./state.js";
-import { processRecording } from "./pipeline.js";
+#!/usr/bin/env node
 
-async function poll(plaudClient: PlaudClient): Promise<void> {
-  const processedIds = loadProcessedIds(config.dataDir);
+import { runInit } from "./cli/init.js";
+import { runStart } from "./cli/start.js";
+import { runLabel } from "./cli/label.js";
+import { runSpeakersList, runSpeakersDelete } from "./cli/speakers.js";
 
-  let newRecordings;
-  try {
-    newRecordings = await plaudClient.getNewRecordings(processedIds);
-  } catch (error) {
-    console.error("Failed to fetch recordings:", error);
-    return;
-  }
+const [command, ...args] = process.argv.slice(2);
 
-  if (newRecordings.length === 0) return;
+const USAGE = `Usage: plaude <command> [args]
 
-  console.log(`Found ${newRecordings.length} new recording(s)`);
-
-  for (const recording of newRecordings) {
-    try {
-      await processRecording(recording, plaudClient);
-      saveProcessedId(config.dataDir, recording.id);
-    } catch (error) {
-      console.error(
-        `Failed to process recording "${recording.filename}":`,
-        error,
-      );
-    }
-  }
-}
+Commands:
+  init                  Set up API keys and configuration
+  start                 Start polling for new recordings
+  label <note-file>     Apply speaker labels from a note file
+  speakers list         List enrolled speaker profiles
+  speakers delete <name> Delete a speaker profile
+`;
 
 async function main(): Promise<void> {
-  console.log("PlaudeNoteTaker starting...");
-  console.log(`  Vault: ${config.vaultPath}/${config.vaultNotesFolder}`);
-  console.log(`  Poll interval: ${config.pollInterval / 1000}s`);
-  console.log(`  Gemini model: ${config.geminiModel}`);
-  console.log(
-    `  Speaker recognition: ${config.picovoiceAccessKey ? "enabled" : "disabled"}`,
-  );
+  switch (command) {
+    case "init":
+      await runInit();
+      break;
 
-  const plaudClient = new PlaudClient(config.plaudBearerToken);
+    case "start":
+      await runStart();
+      break;
 
-  console.log("Testing Plaud connection...");
-  const connected = await plaudClient.testConnection();
-  if (!connected) {
-    console.error(
-      "Failed to connect to Plaud API. Check your bearer token.",
-    );
-    process.exit(1);
+    case "label": {
+      const noteFile = args[0];
+      if (!noteFile) {
+        console.error("Usage: plaude label <note-file>");
+        process.exit(1);
+      }
+      await runLabel(noteFile);
+      break;
+    }
+
+    case "speakers":
+      switch (args[0]) {
+        case "list":
+          runSpeakersList();
+          break;
+        case "delete": {
+          const name = args.slice(1).join(" ");
+          if (!name) {
+            console.error("Usage: plaude speakers delete <name>");
+            process.exit(1);
+          }
+          runSpeakersDelete(name);
+          break;
+        }
+        default:
+          console.error("Usage: plaude speakers <list|delete <name>>");
+          process.exit(1);
+      }
+      break;
+
+    case "help":
+    case "--help":
+    case "-h":
+    case undefined:
+      console.log(USAGE);
+      break;
+
+    default:
+      console.error(`Unknown command: ${command}\n`);
+      console.log(USAGE);
+      process.exit(1);
   }
-  console.log("Plaud connection OK");
-
-  // Run initial poll immediately
-  await poll(plaudClient);
-
-  // Start polling loop
-  console.log(`\nPolling every ${config.pollInterval / 1000}s...`);
-  setInterval(() => {
-    poll(plaudClient).catch((error) =>
-      console.error("Poll error:", error),
-    );
-  }, config.pollInterval);
 }
 
 main().catch((error) => {

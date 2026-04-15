@@ -5,18 +5,19 @@ import { summarizeTranscript } from "./summarization/gemini.js";
 import { loadTemplate } from "./notes/template.js";
 import {
   buildTranscriptText,
-  buildMarkdown,
   extractTitle,
   writeNote,
 } from "./notes/writer.js";
 import { buildSpeakerMap, loadProfiles } from "./speakers/profiles.js";
 import { recognizeSpeakers } from "./speakers/eagle.js";
 import { decodeToPcm } from "./audio.js";
-import { config } from "./config.js";
+import { saveRecordingMeta } from "./state.js";
+import type { Config } from "./config.js";
 
 export async function processRecording(
   recording: PlaudRecording,
   plaudClient: PlaudClient,
+  config: Config,
 ): Promise<string> {
   const recordingDate = new Date(recording.start_time);
   console.log(
@@ -52,7 +53,6 @@ export async function processRecording(
     if (profileNames.length > 0) {
       console.log(`  Running speaker recognition (${profileNames.length} enrolled profiles)...`);
       try {
-        // Decode audio to PCM for Eagle (Eagle needs raw PCM, not compressed)
         const pcm = await decodeToPcm(audioBuffer, 16000);
         const profileBytes = profileNames.map(
           (name) => Uint8Array.from(Buffer.from(profiles[name], "base64")),
@@ -82,6 +82,11 @@ export async function processRecording(
   const speakerLabels = utterances.map((u) => u.speaker);
   const speakerMap = buildSpeakerMap(speakerLabels, recognizedSpeakers);
 
+  // Identify which speakers are still unknown (not recognized by Eagle)
+  const unknownSpeakers = [...speakerMap.entries()]
+    .filter(([, name]) => name.startsWith("Speaker "))
+    .map(([label]) => label);
+
   // 5. Build transcript text for LLM
   const transcriptText = buildTranscriptText(utterances, speakerMap);
 
@@ -99,20 +104,28 @@ export async function processRecording(
   );
 
   // 7. Build markdown and write to vault
-  const markdown = buildMarkdown(
-    geminiOutput,
-    utterances,
-    speakerMap,
-    recordingDate,
-  );
   const title = extractTitle(geminiOutput);
+  const recordingDate2 = recordingDate;
   const filePath = writeNote(
     config.vaultPath,
     config.vaultNotesFolder,
-    markdown,
-    title,
-    recordingDate,
+    geminiOutput,
+    utterances,
+    speakerMap,
+    unknownSpeakers,
+    recordingDate2,
   );
+
+  // 8. Save recording metadata for later use by `plaude label`
+  saveRecordingMeta(config.dataDir, filePath, {
+    recordingId: recording.id,
+    utterances: utterances.map((u) => ({
+      speaker: u.speaker,
+      text: u.text,
+      start: u.start,
+      end: u.end,
+    })),
+  });
 
   console.log(`  Saved: ${filePath}`);
   return filePath;
