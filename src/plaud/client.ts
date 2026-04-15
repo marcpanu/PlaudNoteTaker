@@ -109,9 +109,9 @@ export class PlaudClient {
     const params = new URLSearchParams({
       skip: String(skip),
       limit: String(limit),
-      is_trash: String(isTrash),
+      is_trash: isTrash ? "1" : "0",
       sort_by: sortBy,
-      is_desc: String(isDesc),
+      is_desc: isDesc ? "1" : "0",
     });
     return this.request<PlaudRecordingsResponse>(
       `/file/simple/web?${params}`,

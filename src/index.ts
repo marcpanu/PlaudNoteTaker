@@ -4,6 +4,7 @@ import { runInit } from "./cli/init.js";
 import { runStart } from "./cli/start.js";
 import { runLabel } from "./cli/label.js";
 import { runSpeakersList, runSpeakersDelete } from "./cli/speakers.js";
+import { runTest } from "./cli/test.js";
 
 const [command, ...args] = process.argv.slice(2);
 
@@ -11,6 +12,7 @@ const USAGE = `Usage: plaud <command> [args]
 
 Commands:
   init                  Set up API keys and configuration
+  test                  Verify config and API connections
   start                 Start polling for new recordings
   label <note-file>     Apply speaker labels from a note file
   speakers list         List enrolled speaker profiles
@@ -21,6 +23,10 @@ async function main(): Promise<void> {
   switch (command) {
     case "init":
       await runInit();
+      break;
+
+    case "test":
+      await runTest();
       break;
 
     case "start":
