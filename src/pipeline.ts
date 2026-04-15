@@ -116,7 +116,7 @@ export async function processRecording(
     recordingDate2,
   );
 
-  // 8. Save recording metadata for later use by `plaude label`
+  // 8. Save recording metadata for later use by `plaud label`
   saveRecordingMeta(config.dataDir, filePath, {
     recordingId: recording.id,
     utterances: utterances.map((u) => ({

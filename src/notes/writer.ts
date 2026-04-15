@@ -86,7 +86,7 @@ export function writeNote(
 ${lines.map((l) => `> ${l}`).join("\n")}
 >
 > \`\`\`
-> plaude label "${filename}"
+> plaud label "${filename}"
 > \`\`\`
 
 `;

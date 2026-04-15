@@ -2,7 +2,7 @@ import { config as loadDotenv } from "dotenv";
 import { resolve } from "path";
 import { existsSync } from "fs";
 
-// Only load .env if it exists (won't exist before `plaude init`)
+// Only load .env if it exists (won't exist before `plaud init`)
 const envPath = resolve(process.cwd(), ".env");
 if (existsSync(envPath)) {
   loadDotenv({ path: envPath });
@@ -11,7 +11,7 @@ if (existsSync(envPath)) {
 function required(key: string): string {
   const value = process.env[key];
   if (!value) {
-    throw new Error(`Missing required environment variable: ${key}. Run 'plaude init' to set up.`);
+    throw new Error(`Missing required environment variable: ${key}. Run 'plaud init' to set up.`);
   }
   return value;
 }

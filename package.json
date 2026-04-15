@@ -1,16 +1,16 @@
 {
-  "name": "plaude-note-taker",
+  "name": "plaud-note-taker",
   "version": "0.1.0",
   "description": "Plaud device audio → transcription/diarization → LLM summary → Obsidian vault",
   "main": "dist/index.js",
   "bin": {
-    "plaude": "dist/index.js"
+    "plaud": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js start",
     "dev": "tsx src/index.ts",
-    "plaude": "tsx src/index.ts"
+    "plaud": "tsx src/index.ts"
   },
   "keywords": [],
   "author": "Marc Panu",

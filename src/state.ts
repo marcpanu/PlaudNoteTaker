@@ -36,7 +36,7 @@ export function saveProcessedId(dataDir: string, id: string): void {
   writeFileSync(path, JSON.stringify(state, null, 2));
 }
 
-// --- Recording Metadata (for `plaude label`) ---
+// --- Recording Metadata (for `plaud label`) ---
 
 type MetaStore = Record<string, RecordingMeta>; // keyed by note filename
 

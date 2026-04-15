@@ -14,8 +14,8 @@ export function decodeToPcm(
 ): Promise<Int16Array> {
   return new Promise((resolve, reject) => {
     // Write input to temp file (ffmpeg needs seekable input for some formats)
-    const tmpInput = join(tmpdir(), `plaude-${randomUUID()}.audio`);
-    const tmpOutput = join(tmpdir(), `plaude-${randomUUID()}.raw`);
+    const tmpInput = join(tmpdir(), `plaud-${randomUUID()}.audio`);
+    const tmpOutput = join(tmpdir(), `plaud-${randomUUID()}.raw`);
 
     writeFileSync(tmpInput, audioBuffer);
 

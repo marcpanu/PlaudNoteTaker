@@ -7,7 +7,7 @@ import { runSpeakersList, runSpeakersDelete } from "./cli/speakers.js";
 
 const [command, ...args] = process.argv.slice(2);
 
-const USAGE = `Usage: plaude <command> [args]
+const USAGE = `Usage: plaud <command> [args]
 
 Commands:
   init                  Set up API keys and configuration
@@ -30,7 +30,7 @@ async function main(): Promise<void> {
     case "label": {
       const noteFile = args[0];
       if (!noteFile) {
-        console.error("Usage: plaude label <note-file>");
+        console.error("Usage: plaud label <note-file>");
         process.exit(1);
       }
       await runLabel(noteFile);
@@ -45,14 +45,14 @@ async function main(): Promise<void> {
         case "delete": {
           const name = args.slice(1).join(" ");
           if (!name) {
-            console.error("Usage: plaude speakers delete <name>");
+            console.error("Usage: plaud speakers delete <name>");
             process.exit(1);
           }
           runSpeakersDelete(name);
           break;
         }
         default:
-          console.error("Usage: plaude speakers <list|delete <name>>");
+          console.error("Usage: plaud speakers <list|delete <name>>");
           process.exit(1);
       }
       break;

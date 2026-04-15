@@ -8,7 +8,7 @@ export function runSpeakersList(): void {
 
   if (names.length === 0) {
     console.log("No enrolled speakers.");
-    console.log('Label speakers in a note and run "plaude label <file>" to enroll them.');
+    console.log('Label speakers in a note and run "plaud label <file>" to enroll them.');
     return;
   }
 

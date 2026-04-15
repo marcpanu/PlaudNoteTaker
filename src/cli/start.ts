@@ -6,7 +6,7 @@ import { processRecording } from "../pipeline.js";
 export async function runStart(): Promise<void> {
   const config = loadConfig();
 
-  console.log("PlaudeNoteTaker starting...");
+  console.log("PlaudNoteTaker starting...");
   console.log(`  Vault: ${config.vaultPath}/${config.vaultNotesFolder}`);
   console.log(`  Poll interval: ${config.pollInterval / 1000}s`);
   console.log(`  Gemini model: ${config.geminiModel}`);
