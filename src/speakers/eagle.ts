@@ -2,6 +2,10 @@ import { Eagle, EagleProfiler } from "@picovoice/eagle-node";
 import type { Utterance } from "../transcription/assemblyai.js";
 
 const SCORE_THRESHOLD = 0.3;
+// Limit Eagle processing to this many seconds of audio per AssemblyAI speaker label.
+// Eagle needs ~30s to reliably identify a voice; more audio doesn't improve accuracy
+// and burns through the 100 min/mo free quota.
+const MAX_SECONDS_PER_SPEAKER = 30;
 
 interface SpeakerScore {
   totalScore: number;
@@ -43,22 +47,32 @@ export function recognizeSpeakers(
   const eagle = new Eagle(accessKey);
   const sampleRate = eagle.sampleRate;
   const chunkSize = eagle.minProcessSamples;
+  const chunkDurationMs = (chunkSize / sampleRate) * 1000;
+  const maxMsPerSpeaker = MAX_SECONDS_PER_SPEAKER * 1000;
+
+  // Unique speaker labels from utterances — used to early-exit once all are sampled
+  const allLabels = new Set(utterances.map((u) => u.speaker));
 
   try {
     const speakerScores = new Map<string, SpeakerScore[]>();
+    const speakerAudioMs = new Map<string, number>();
 
     for (let offset = 0; offset + chunkSize <= pcm.length; offset += chunkSize) {
-      const frame = pcm.slice(offset, offset + chunkSize);
-      // Eagle requires ArrayBuffer[], not Uint8Array[]
-      const scores = eagle.process(frame, profileBuffers as any);
-
-      if (!scores || scores.length === 0) continue;
-
       const frameTimeMs = (offset / sampleRate) * 1000;
       const utterance = utterances.find(
         (u) => frameTimeMs >= u.start && frameTimeMs <= u.end,
       );
       if (!utterance) continue;
+
+      // Skip chunks for speakers we've already sampled enough audio from
+      const accumulated = speakerAudioMs.get(utterance.speaker) ?? 0;
+      if (accumulated >= maxMsPerSpeaker) continue;
+
+      const frame = pcm.slice(offset, offset + chunkSize);
+      const scores = eagle.process(frame, profileBuffers as any);
+      speakerAudioMs.set(utterance.speaker, accumulated + chunkDurationMs);
+
+      if (!scores || scores.length === 0) continue;
 
       if (!speakerScores.has(utterance.speaker)) {
         speakerScores.set(
@@ -71,6 +85,14 @@ export function recognizeSpeakers(
       for (let i = 0; i < scores.length; i++) {
         labelScores[i].totalScore += scores[i];
         labelScores[i].count += 1;
+      }
+
+      // Early exit: all speakers have enough audio
+      if (
+        speakerAudioMs.size === allLabels.size &&
+        [...speakerAudioMs.values()].every((ms) => ms >= maxMsPerSpeaker)
+      ) {
+        break;
       }
     }
 
