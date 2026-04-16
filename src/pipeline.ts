@@ -10,7 +10,7 @@ import {
   writeNote,
 } from "./notes/writer.js";
 import { buildSpeakerMap, loadProfiles } from "./speakers/profiles.js";
-import { recognizeSpeakers } from "./speakers/eagle.js";
+import { recognizeSpeakers, profileFromBase64 } from "./speakers/eagle.js";
 import { convertToWav, decodeToPcm } from "./audio.js";
 import { saveRecordingMeta } from "./state.js";
 import { log, warn } from "./log.js";
@@ -63,14 +63,14 @@ export async function processRecording(
       log(`  Running speaker recognition (${profileNames.length} enrolled profiles)...`);
       try {
         const pcm = await decodeToPcm(audioBuffer, 16000);
-        const profileBytes = profileNames.map(
-          (name) => Uint8Array.from(Buffer.from(profiles[name], "base64")),
+        const profileBuffers = profileNames.map(
+          (name) => profileFromBase64(profiles[name]),
         );
         recognizedSpeakers = recognizeSpeakers(
           pcm,
           utterances,
           profileNames,
-          profileBytes,
+          profileBuffers,
           config.picovoiceAccessKey,
         );
         if (recognizedSpeakers.size > 0) {

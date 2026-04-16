@@ -5,7 +5,7 @@ import { parseUnknownSpeakers, applyLabels } from "../notes/writer.js";
 import { getRecordingMeta } from "../state.js";
 import { PlaudClient } from "../plaud/client.js";
 import { decodeToPcm } from "../audio.js";
-import { enrollSpeaker } from "../speakers/eagle.js";
+import { enrollSpeaker, profileToBase64 } from "../speakers/eagle.js";
 import { loadProfiles, saveProfiles } from "../speakers/profiles.js";
 
 export async function runLabel(noteArg: string): Promise<void> {
@@ -106,7 +106,7 @@ export async function runLabel(noteArg: string): Promise<void> {
           16000,
         );
         if (profile) {
-          profiles[name] = Buffer.from(profile).toString("base64");
+          profiles[name] = profileToBase64(profile);
           console.log(`  ${name}: enrolled successfully`);
         } else {
           console.warn(

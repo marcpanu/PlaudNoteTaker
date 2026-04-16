@@ -9,6 +9,23 @@ interface SpeakerScore {
 }
 
 /**
+ * Convert a base64-encoded profile to an ArrayBuffer that Eagle accepts.
+ * Eagle's native code requires ArrayBuffer, not Uint8Array.
+ */
+export function profileFromBase64(b64: string): ArrayBuffer {
+  const buf = Buffer.from(b64, "base64");
+  // Buffer uses a shared pool — .buffer may be 8KB. Slice to get a clean ArrayBuffer.
+  return buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+}
+
+/**
+ * Convert an ArrayBuffer profile to base64 for storage.
+ */
+export function profileToBase64(profile: ArrayBuffer): string {
+  return Buffer.from(profile).toString("base64");
+}
+
+/**
  * Run Eagle speaker recognition on pre-recorded audio against enrolled profiles.
  * Returns a map of AssemblyAI speaker label → enrolled speaker name.
  */
@@ -16,10 +33,10 @@ export function recognizeSpeakers(
   pcm: Int16Array,
   utterances: Utterance[],
   profileNames: string[],
-  profileBytes: Uint8Array[],
+  profileBuffers: ArrayBuffer[],
   accessKey: string,
 ): Map<string, string> {
-  if (profileNames.length === 0 || profileBytes.length === 0) {
+  if (profileNames.length === 0 || profileBuffers.length === 0) {
     return new Map();
   }
 
@@ -28,24 +45,21 @@ export function recognizeSpeakers(
   const chunkSize = eagle.minProcessSamples;
 
   try {
-    // Accumulate scores per AssemblyAI speaker label per enrolled profile
     const speakerScores = new Map<string, SpeakerScore[]>();
 
-    // Process audio in chunks of minProcessSamples
     for (let offset = 0; offset + chunkSize <= pcm.length; offset += chunkSize) {
       const frame = pcm.slice(offset, offset + chunkSize);
-      const scores = eagle.process(frame, profileBytes);
+      // Eagle requires ArrayBuffer[], not Uint8Array[]
+      const scores = eagle.process(frame, profileBuffers as any);
 
       if (!scores || scores.length === 0) continue;
 
-      // Determine which utterance this chunk belongs to
       const frameTimeMs = (offset / sampleRate) * 1000;
       const utterance = utterances.find(
         (u) => frameTimeMs >= u.start && frameTimeMs <= u.end,
       );
       if (!utterance) continue;
 
-      // Accumulate scores for this speaker label
       if (!speakerScores.has(utterance.speaker)) {
         speakerScores.set(
           utterance.speaker,
@@ -66,10 +80,6 @@ export function recognizeSpeakers(
   }
 }
 
-/**
- * Assign enrolled speaker names to AssemblyAI labels using best-match-first.
- * Each profile can only be assigned to one label.
- */
 function assignSpeakers(
   speakerScores: Map<string, SpeakerScore[]>,
   profileNames: string[],
@@ -77,7 +87,6 @@ function assignSpeakers(
   const result = new Map<string, string>();
   const usedProfiles = new Set<number>();
 
-  // Build candidates: [label, profileIndex, avgScore]
   const candidates: [string, number, number][] = [];
   for (const [label, scores] of speakerScores) {
     for (let i = 0; i < scores.length; i++) {
@@ -89,7 +98,6 @@ function assignSpeakers(
     }
   }
 
-  // Sort by score descending — best matches first
   candidates.sort((a, b) => b[2] - a[2]);
 
   for (const [label, profileIndex] of candidates) {
@@ -102,15 +110,15 @@ function assignSpeakers(
 }
 
 /**
- * Enroll a speaker from audio segments (e.g., utterances attributed to them).
- * Returns the profile as a Uint8Array, or null if enrollment didn't reach 100%.
+ * Enroll a speaker from audio segments.
+ * Returns the profile as an ArrayBuffer, or null if enrollment didn't reach 100%.
  */
 export function enrollSpeaker(
   pcm: Int16Array,
   segments: { startMs: number; endMs: number }[],
   accessKey: string,
   sampleRate: number,
-): Uint8Array | null {
+): ArrayBuffer | null {
   const profiler = new EagleProfiler(accessKey);
 
   try {
@@ -131,7 +139,11 @@ export function enrollSpeaker(
         percentage = profiler.enroll(frame);
 
         if (percentage >= 100) {
-          return profiler.export();
+          // export() returns ArrayBuffer backed by native memory.
+          // Must copy before profiler.release() frees it.
+          const exported = profiler.export() as unknown as ArrayBuffer;
+          const copy = exported.slice(0);
+          return copy;
         }
       }
     }
@@ -142,7 +154,7 @@ export function enrollSpeaker(
       );
     }
 
-    return percentage >= 100 ? profiler.export() : null;
+    return null;
   } finally {
     profiler.release();
   }
