@@ -33,12 +33,18 @@ export async function runStart(): Promise<void> {
   // Run initial poll immediately
   await poll(plaudClient, config);
 
-  // Start polling loop
+  // Start polling loop — skip if previous poll is still running
+  let polling = false;
   log(`Polling every ${config.pollInterval / 1000}s...`);
   setInterval(() => {
-    poll(plaudClient, config).catch((err) =>
-      error("Poll error:", err),
-    );
+    if (polling) {
+      log("Previous poll still running, skipping...");
+      return;
+    }
+    polling = true;
+    poll(plaudClient, config)
+      .catch((err) => error("Poll error:", err))
+      .finally(() => { polling = false; });
   }, config.pollInterval);
 }
 

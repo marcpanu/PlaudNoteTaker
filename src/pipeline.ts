@@ -32,23 +32,10 @@ export async function processRecording(
   const audioBuffer = await plaudClient.downloadRecording(recording.id);
   log(`  Downloaded ${(audioBuffer.length / 1024 / 1024).toFixed(1)}MB`);
 
-  // Save raw audio for debugging
-  const { writeFileSync, mkdirSync, existsSync } = await import("fs");
-  const { join } = await import("path");
-  const audioDir = join(config.dataDir, "audio");
-  if (!existsSync(audioDir)) mkdirSync(audioDir, { recursive: true });
-  const ext = recording.filetype || recording.fullname?.split(".").pop() || "bin";
-  const audioPath = join(audioDir, `${recording.id}.${ext}`);
-  writeFileSync(audioPath, audioBuffer);
-  log(`  Saved audio to: ${audioPath}`);
-
   // 2. Convert to WAV for reliable transcription (Plaud OGG files fail on AssemblyAI)
   log("  Converting audio to WAV...");
   const wavBuffer = await convertToWav(audioBuffer);
   log(`  Converted: ${(wavBuffer.length / 1024 / 1024).toFixed(1)}MB WAV`);
-  const wavPath = join(audioDir, `${recording.id}.wav`);
-  writeFileSync(wavPath, wavBuffer);
-  log(`  Saved WAV to: ${wavPath}`);
 
   // 3. Transcribe with AssemblyAI (includes diarization)
   const utterances = await transcribeAudio(
