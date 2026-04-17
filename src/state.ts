@@ -1,6 +1,13 @@
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from "fs";
 import { join } from "path";
 
+/**
+ * SEAM: dataDir injection (SHAR-01).
+ * All exported functions accept `dataDir` as their first parameter.
+ * This module MUST NOT import Config or read config.dataDir.
+ * Callers (CLI handlers, pipeline) thread the resolved path from loadConfig().dataDir.
+ */
+
 const STATE_FILE = "processed-recordings.json";
 const META_FILE = "recording-meta.json";
 const HISTORY_FILE = "processing-history.json";

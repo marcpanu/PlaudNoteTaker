@@ -1,0 +1,14 @@
+◇ injected env (11) from .env // tip: ◈ encrypted .env [www.dotenvx.com]
+PlaudNoteTaker config test
+
+ffmpeg: OK
+Config: OK
+Plaud API: OK — 1 device(s): Plaud Note Pro
+Recordings: 1 total
+Vault path: OK — 87 folders found
+Picovoice: configured
+Gemini model: gemini-3-flash-preview
+Poll interval: 60s
+Fallback folder: Meeting-Notes
+
+All checks passed. Run 'plaud start' to begin.

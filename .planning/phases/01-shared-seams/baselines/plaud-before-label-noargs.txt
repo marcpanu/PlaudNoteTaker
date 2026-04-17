@@ -1,0 +1,2 @@
+◇ injected env (11) from .env // tip: ⌘ override existing { override: true }
+Usage: plaud label <note-file>

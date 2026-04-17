@@ -1,0 +1,3 @@
+◇ injected env (11) from .env // tip: ⌘ custom filepath { path: '/custom/path/.env' }
+Speaker "__DoesNotExist__" not found.
+Enrolled speakers: Craig Cassidy, Edward Hickey, Kit Ruddock, Lindsay Harris, Marc Panu, Mike Prate, Unknown

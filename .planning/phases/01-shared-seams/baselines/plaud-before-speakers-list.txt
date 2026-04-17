@@ -1,0 +1,9 @@
+◇ injected env (11) from .env // tip: ⌘ enable debugging { debug: true }
+Enrolled speakers (7):
+  - Craig Cassidy
+  - Edward Hickey
+  - Kit Ruddock
+  - Lindsay Harris
+  - Marc Panu
+  - Mike Prate
+  - Unknown
