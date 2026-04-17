@@ -105,6 +105,7 @@ export type IpcChannel =
   // windows
   | "window:open-settings"
   | "window:close-settings"
+  | "window:open-logs"
   | "window:close-logs";
 
 // One-way events pushed from main → renderer (not request/reply).
@@ -208,6 +209,8 @@ export type OpenSettingsRequest = void;
 export type OpenSettingsResponse = { ok: true };
 export type CloseSettingsRequest = void;
 export type CloseSettingsResponse = { ok: true };
+export type OpenLogsRequest = void;
+export type OpenLogsResponse = { ok: true };
 export type CloseLogsRequest = void;
 export type CloseLogsResponse = { ok: true };
 
@@ -250,7 +253,9 @@ export interface PlaudApi {
   dismissMigration: () => Promise<DismissMigrationResponse>;
 
   // Windows
+  openSettings: () => Promise<OpenSettingsResponse>;
   closeSettings: () => Promise<CloseSettingsResponse>;
+  openLogs: () => Promise<OpenLogsResponse>;
   closeLogs: () => Promise<CloseLogsResponse>;
 
   // Events (main → renderer push)
