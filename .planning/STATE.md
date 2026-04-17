@@ -5,16 +5,15 @@
 See: .planning/PROJECT.md (updated 2026-04-16)
 
 **Core value:** New Plaud recordings land in Obsidian as polished notes without the user ever opening a terminal, and labeling unknown speakers is a single click inside the note.
-**Current focus:** Phase 2a complete — ready for Phase 2b (signing + notarization) or Phase 3 (daemon) depending on user creds
+**Current focus:** Phase 3 complete — ready for Phase 4 (popover + notifications + HTTP bridge) or Phase 2b (signing/notarization)
 
 ## Current Position
 
-Phase: 2 of 5 (Electron Shell)
-Plan: 2a complete; 2b pending (signing/notarization)
-Status: Phase 2a complete — Eagle ABI verified on Electron 41 (no fallback needed); menubar skeleton + ffmpeg bundle working in packaged .app
-Last activity: 2026-04-17 — Completed Phase 2a. Eagle smoke test passed in packaged app: module loaded, no NODE_MODULE_VERSION mismatch. ffmpeg probe ok. Tray + LSUIElement + single-instance-lock + Cmd-Q all working.
+Phase: 3 of 5 complete
+Status: Phase 3 daemon shipped end-to-end. Packaged .app runs full startup sequence: paths → ffmpeg → pidfile → Eagle → log-buffer → migration-detect → config-load → tray → IPC handlers. Two-agent parallel execution (main-process + renderer) integrated cleanly off the electron/ipc.ts contract.
+Last activity: 2026-04-17 — Phase 3 integrated. 27/27 Phase 3 requirements complete. Packaged binary smoke-tested: migration detects .env+data in repo, daemon correctly pauses when config incomplete, Settings window opens. CLI regression clean.
 
-Progress: [████░░░░░░] 40%
+Progress: [██████░░░░] 60%
 
 ## Performance Metrics
 

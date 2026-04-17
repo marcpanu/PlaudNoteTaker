@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Shared Seams** — Refactor `src/config`, `src/log`, `src/state` with injection seams so CLI and future app can share code without divergence
 - [ ] **Phase 2: Electron Shell — Signed, Notarized, Eagle-Verified** — Boot a signed+notarized `.app` with menubar icon, no Dock, that proves Eagle native module runs in Electron's main process
-- [ ] **Phase 3: Core Daemon — Migration, Config, Poll Loop, Settings, Logs** — App performs the full pipeline in the background with Keychain-stored keys, migrated state, live logs, and a configurable Settings window
+- [x] **Phase 3: Core Daemon — Migration, Config, Poll Loop, Settings, Logs** — App performs the full pipeline in the background with Keychain-stored keys, migrated state, live logs, and a configurable Settings window
 - [ ] **Phase 4: User Surface — Popover, Notifications, HTTP Bridge** — App feels like a native menubar tool (popover, notifications, status icon states) and exposes a loopback HTTP bridge for Obsidian
 - [ ] **Phase 5: Obsidian Plugin — Match Speakers Button** — Notes containing an Unknown Speakers callout render a one-click button that drives the daemon's label-and-enroll flow
 
@@ -84,9 +84,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 03-01: Migration + Keychain + config loader + startup sequence (ffmpeg check, lock, migrate, config, service facade, IPC, preload)
-- [ ] 03-02: Poll loop with powerMonitor + AbortController + per-tick try/catch + ffmpeg resolver + single-instance coordination with CLI
-- [ ] 03-03: Settings window (API keys / paths / interval / model / speakers / launch-at-login) + Logs tab + menubar icon state machine + close-to-menubar semantics
+- [x] 03-01: Migration + Keychain + config loader + startup sequence (ffmpeg check, lock, migrate, config, service facade, IPC, preload)
+- [x] 03-02: Poll loop with powerMonitor + AbortController + per-tick try/catch + ffmpeg resolver + single-instance coordination with CLI
+- [x] 03-03: Settings window (API keys / paths / interval / model / speakers / launch-at-login) + Logs tab + menubar icon state machine + close-to-menubar semantics
 
 ---
 
@@ -143,7 +143,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 (decimal phases inser
 |-------|----------------|--------|-----------|
 | 1. Shared Seams | 1/1 | ✓ Complete | 2026-04-16 |
 | 2. Electron Shell — Signed, Notarized, Eagle-Verified | 2/3 | ◆ 2a done, 2b (signing) pending | - |
-| 3. Core Daemon — Migration, Config, Poll Loop, Settings, Logs | 0/3 | Not started | - |
+| 3. Core Daemon — Migration, Config, Poll Loop, Settings, Logs | 3/3 | ✓ Complete | 2026-04-17 |
 | 4. User Surface — Popover, Notifications, HTTP Bridge | 0/3 | Not started | - |
 | 5. Obsidian Plugin — Match Speakers Button | 0/2 | Not started | - |
 
