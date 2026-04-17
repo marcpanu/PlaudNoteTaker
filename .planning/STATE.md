@@ -5,15 +5,15 @@
 See: .planning/PROJECT.md (updated 2026-04-16)
 
 **Core value:** New Plaud recordings land in Obsidian as polished notes without the user ever opening a terminal, and labeling unknown speakers is a single click inside the note.
-**Current focus:** Phase 3 complete — ready for Phase 4 (popover + notifications + HTTP bridge) or Phase 2b (signing/notarization)
+**Current focus:** Phase 4 complete — Phase 5 (user has a different approach in mind) and Phase 2b (signing + notarization) remain
 
 ## Current Position
 
-Phase: 3 of 5 complete
-Status: Phase 3 daemon shipped end-to-end. Packaged .app runs full startup sequence: paths → ffmpeg → pidfile → Eagle → log-buffer → migration-detect → config-load → tray → IPC handlers. Two-agent parallel execution (main-process + renderer) integrated cleanly off the electron/ipc.ts contract.
-Last activity: 2026-04-17 — Phase 3 integrated. 27/27 Phase 3 requirements complete. Packaged binary smoke-tested: migration detects .env+data in repo, daemon correctly pauses when config incomplete, Settings window opens. CLI regression clean.
+Phase: 4 of 5 complete
+Status: Phase 4 shipped end-to-end. Packaged app has popover with recent notes (max(10, 72h) rule), native notifications fire on note-saved + errors, and a Hono HTTP bridge on 127.0.0.1 serves /health + /label-speakers with 32-byte hex bearer auth. LAN access verified denied.
+Last activity: 2026-04-17 — Phase 4 integrated. 18/18 Phase 4 requirements complete. bridge.json written at userDataDir/bridge.json (mode 0600). Phase 3 followups included: migration-import try/catch + pollInterval ms↔s unit fix + max(10,72h) recent-notes rule.
 
-Progress: [██████░░░░] 60%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 

@@ -72,26 +72,22 @@ function createTray(): Tray {
   const t = new Tray(icon);
   t.setToolTip("Plaud Obsidian Note Taker");
 
+  // Right-click menu — deliberately minimal. The popover (left-click) is the
+  // primary interaction surface and already exposes Poll Now / Start-Stop /
+  // Settings / Logs. Right-click stays out of its way and only offers actions
+  // you can't easily get to from the popover: Show Popover (escape hatch),
+  // Preferences (Cmd-,), About, Quit. Per MBAR-04.
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: "Settings…",
+      label: "Show Popover",
+      click: () => { togglePopover(t); },
+    },
+    { type: "separator" },
+    {
+      label: "Preferences…",
       accelerator: "CmdOrCtrl+,",
       click: () => { openSettings(); },
     },
-    {
-      label: "Logs",
-      click: () => { openLogs(); },
-    },
-    {
-      label: "Poll Now",
-      click: () => {
-        const { pollNow } = require("./app/service.js") as typeof import("./app/service.js");
-        pollNow().catch((err: unknown) => {
-          console.error("[main] poll-now error:", err);
-        });
-      },
-    },
-    { type: "separator" },
     {
       label: `About ${app.name}`,
       click: () => {
@@ -107,11 +103,16 @@ function createTray(): Tray {
     { type: "separator" },
     { role: "quit", label: "Quit" },
   ]);
-  t.setContextMenu(contextMenu);
-
-  // Left-click opens/closes the popover
+  // IMPORTANT: do NOT call t.setContextMenu(contextMenu). On macOS, a tray with
+  // a context menu set shows it on EVERY click, including left-click — AND also
+  // fires the "click" event. Result: left-clicking shows both the popover and the
+  // context menu simultaneously. Instead, wire the menu to the right-click event
+  // manually via popUpContextMenu. Left-click stays clean for the popover.
   t.on("click", () => {
     togglePopover(t);
+  });
+  t.on("right-click", () => {
+    t.popUpContextMenu(contextMenu);
   });
 
   return t;

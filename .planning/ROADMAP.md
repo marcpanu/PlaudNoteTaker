@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Shared Seams** — Refactor `src/config`, `src/log`, `src/state` with injection seams so CLI and future app can share code without divergence
 - [ ] **Phase 2: Electron Shell — Signed, Notarized, Eagle-Verified** — Boot a signed+notarized `.app` with menubar icon, no Dock, that proves Eagle native module runs in Electron's main process
 - [x] **Phase 3: Core Daemon — Migration, Config, Poll Loop, Settings, Logs** — App performs the full pipeline in the background with Keychain-stored keys, migrated state, live logs, and a configurable Settings window
-- [ ] **Phase 4: User Surface — Popover, Notifications, HTTP Bridge** — App feels like a native menubar tool (popover, notifications, status icon states) and exposes a loopback HTTP bridge for Obsidian
+- [x] **Phase 4: User Surface — Popover, Notifications, HTTP Bridge** — App feels like a native menubar tool (popover, notifications, status icon states) and exposes a loopback HTTP bridge for Obsidian
 - [ ] **Phase 5: Obsidian Plugin — Match Speakers Button** — Notes containing an Unknown Speakers callout render a one-click button that drives the daemon's label-and-enroll flow
 
 ## Phase Details
@@ -107,9 +107,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 04-01: Popover window (recent-notes list, controls, footer, empty state, obsidian:// open) + left-click + context menu with full entries (Open Popover, Preferences, About, Quit)
-- [ ] 04-02: Native notifications (new-note + error) with click-to-open + `CFBundleIdentifier` grouping + first-launch permission handling
-- [ ] 04-03: Hono loopback HTTP bridge (`/health`, `/label-speakers`) + `bridge.json` with 0600 perms + bearer token + vault-path validation + graceful shutdown
+- [x] 04-01: Popover window (recent-notes list, controls, footer, empty state, obsidian:// open) + left-click + context menu with full entries (Open Popover, Preferences, About, Quit)
+- [x] 04-02: Native notifications (new-note + error) with click-to-open + `CFBundleIdentifier` grouping + first-launch permission handling
+- [x] 04-03: Hono loopback HTTP bridge (`/health`, `/label-speakers`) + `bridge.json` with 0600 perms + bearer token + vault-path validation + graceful shutdown
 
 ---
 
@@ -144,7 +144,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 (decimal phases inser
 | 1. Shared Seams | 1/1 | ✓ Complete | 2026-04-16 |
 | 2. Electron Shell — Signed, Notarized, Eagle-Verified | 2/3 | ◆ 2a done, 2b (signing) pending | - |
 | 3. Core Daemon — Migration, Config, Poll Loop, Settings, Logs | 3/3 | ✓ Complete | 2026-04-17 |
-| 4. User Surface — Popover, Notifications, HTTP Bridge | 0/3 | Not started | - |
+| 4. User Surface — Popover, Notifications, HTTP Bridge | 3/3 | ✓ Complete | 2026-04-17 |
 | 5. Obsidian Plugin — Match Speakers Button | 0/2 | Not started | - |
 
 ---
