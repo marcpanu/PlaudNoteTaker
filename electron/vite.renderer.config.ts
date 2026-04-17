@@ -17,6 +17,7 @@ export default defineConfig({
       input: {
         settings: resolve(__dirname, "renderer/settings/index.html"),
         logs: resolve(__dirname, "renderer/logs/index.html"),
+        popover: resolve(__dirname, "renderer/popover/index.html"),
       },
     },
     minify: false,

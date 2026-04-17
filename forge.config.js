@@ -77,6 +77,10 @@ export default {
             name: "logs",
             config: "electron/vite.renderer.config.ts",
           },
+          {
+            name: "popover",
+            config: "electron/vite.renderer.config.ts",
+          },
         ],
       },
     },

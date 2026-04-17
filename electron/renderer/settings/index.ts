@@ -168,14 +168,27 @@ async function checkMigration(): Promise<void> {
       el("btn-migration-import").onclick = async () => {
         if (status.kind !== "source_found") return;
         hide(banner);
-        const result = await window.plaudApi.runMigration({
-          envPath: status.envPath,
-          dataDirPath: status.dataDirPath,
-        });
-        if (result.kind === "complete") {
-          await loadConfig();
-        } else if (result.kind === "failed") {
-          showStatus(`Migration failed: ${result.error}`, "error");
+        showStatus("Importing existing setup…", "info");
+        try {
+          const result = await window.plaudApi.runMigration({
+            envPath: status.envPath,
+            dataDirPath: status.dataDirPath,
+          });
+          console.log("[renderer] runMigration result:", result);
+          if (result.kind === "complete") {
+            showStatus("Import complete — loading config…", "info");
+            await loadConfig();
+            showStatus("Import complete. Review and save any adjustments.", "success");
+          } else if (result.kind === "failed") {
+            showStatus(`Migration failed: ${result.error}`, "error");
+            show(banner);
+          } else {
+            showStatus(`Migration returned unexpected status: ${result.kind}`, "error");
+            show(banner);
+          }
+        } catch (err) {
+          console.error("[renderer] runMigration threw:", err);
+          showStatus(`Migration threw: ${String(err)}`, "error");
           show(banner);
         }
       };

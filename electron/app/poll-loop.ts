@@ -7,6 +7,7 @@
  */
 
 import { powerMonitor, webContents } from "electron";
+import { basename as pathBasename, dirname as pathDirname, relative as pathRelative } from "node:path";
 import type { Config } from "../../src/config/types.js";
 import type { DaemonState } from "../../electron/ipc.js";
 import { PlaudClient } from "../../src/plaud/client.js";
@@ -27,6 +28,38 @@ let _abortController: AbortController = new AbortController();
 let _running = false; // reentrancy guard
 
 let _daemonState: DaemonState = { kind: "idle", lastPollAt: null, lastError: null };
+
+// ── Event subscribers (Set pattern, same as log pub/sub) ─────────────────────
+
+type NoteSavedPayload = { title: string; filePath: string; folder: string };
+type ErrorPayload = { title: string; message: string };
+
+const _noteSavedSubs = new Set<(payload: NoteSavedPayload) => void>();
+const _errorSubs = new Set<(payload: ErrorPayload) => void>();
+
+/** Subscribe to new-note events. Returns unsubscribe fn. */
+export function onNoteSaved(cb: (payload: NoteSavedPayload) => void): () => void {
+  _noteSavedSubs.add(cb);
+  return () => { _noteSavedSubs.delete(cb); };
+}
+
+/** Subscribe to pipeline error events. Returns unsubscribe fn. */
+export function onError(cb: (payload: ErrorPayload) => void): () => void {
+  _errorSubs.add(cb);
+  return () => { _errorSubs.delete(cb); };
+}
+
+function fireNoteSaved(payload: NoteSavedPayload): void {
+  for (const cb of _noteSavedSubs) {
+    try { cb(payload); } catch { /* ignore subscriber errors */ }
+  }
+}
+
+function fireError(payload: ErrorPayload): void {
+  for (const cb of _errorSubs) {
+    try { cb(payload); } catch { /* ignore subscriber errors */ }
+  }
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -111,6 +144,16 @@ export async function runTick(): Promise<void> {
             };
             addToHistory(config.dataDir, entry);
             recentNotes.push(entry);
+
+            // Derive title and folder from filePath for notification subscribers
+            const noteBasename = pathBasename(filePath, ".md");
+            // Strip leading date prefix (YYYY-MM-DD ) if present
+            const noteTitle = noteBasename.replace(/^\d{4}-\d{2}-\d{2}\s+/, "");
+            const noteFolder = config.vaultPath
+              ? pathRelative(config.vaultPath, pathDirname(filePath))
+              : pathDirname(filePath);
+
+            fireNoteSaved({ title: noteTitle, filePath, folder: noteFolder });
           }
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
@@ -125,6 +168,10 @@ export async function runTick(): Promise<void> {
             });
           } else {
             error(`[poll-loop] failed to process "${recording.filename}":`, err);
+            fireError({
+              title: "Plaud: Processing error",
+              message: `Failed to process "${recording.filename}": ${msg}`,
+            });
           }
         }
       }
@@ -149,6 +196,7 @@ export async function runTick(): Promise<void> {
     const msg = err instanceof Error ? err.message : String(err);
     error("[poll-loop] tick failed:", err);
     emitDaemonState({ kind: "error", lastPollAt: _daemonState.lastPollAt, lastError: msg });
+    fireError({ title: "Plaud: Poll error", message: msg });
     scheduleNext(config?.pollInterval ?? 60_000);
   } finally {
     _running = false;

@@ -104,10 +104,15 @@ export async function saveSettings(
   if (partial.selectedTemplate !== undefined) updated.selectedTemplate = partial.selectedTemplate;
   if (partial.geminiModel !== undefined) updated.geminiModel = partial.geminiModel;
   if (partial.pollInterval !== undefined) {
-    // pollInterval in ConfigNonSecret is stored as seconds
-    updated.pollInterval = typeof partial.pollInterval === "number"
-      ? Math.round(partial.pollInterval)
+    // Settings UI sends pollInterval in ms (consistent with Config.pollInterval).
+    // settings.json stores it in seconds to match env-loader's POLL_INTERVAL units
+    // and what migration.ts wrote. Convert ms → s here.
+    const ms = typeof partial.pollInterval === "number"
+      ? partial.pollInterval
       : parseInt(String(partial.pollInterval), 10);
+    if (!isNaN(ms)) {
+      updated.pollInterval = Math.round(ms / 1000);
+    }
   }
 
   const path = join(userDataDir, "settings.json");

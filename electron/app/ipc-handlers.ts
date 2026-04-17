@@ -198,7 +198,28 @@ export function registerIpcHandlers(): void {
   // ── Recent Notes ─────────────────────────────────────────────────────────────
 
   ipcMain.handle("notes:recent", async () => {
-    const history = getRecentHistory(dataDir, 72);
+    // Rule: max(10 most recent, everything from last 72h), sorted newest-first.
+    const all72h = getRecentHistory(dataDir, 72);
+    let history: typeof all72h;
+
+    if (all72h.length >= 10) {
+      history = all72h;
+    } else {
+      // Fetch effectively all history and take the 10 most recent
+      const wide = getRecentHistory(dataDir, 24 * 365 * 10);
+      history = wide;
+    }
+
+    // Sort newest-first by processedAt
+    history = [...history].sort(
+      (a, b) => new Date(b.processedAt).getTime() - new Date(a.processedAt).getTime(),
+    );
+
+    if (all72h.length < 10) {
+      // Already sorted; slice to 10 when we went wide
+      history = history.slice(0, 10);
+    }
+
     const config = await loadConfigFromApp(userDataDir, secretGetter);
     const vaultPath = config?.vaultPath ?? "";
     const notes: RecentNote[] = history.map((e) => ({
@@ -261,6 +282,11 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle("window:close-settings", async () => {
     closeSettings();
+    return { ok: true };
+  });
+
+  ipcMain.handle("window:open-logs", async () => {
+    openLogs();
     return { ok: true };
   });
 

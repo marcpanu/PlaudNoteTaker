@@ -23,6 +23,7 @@ export interface AppPaths {
   secretsJsonPath: string;
   migrationSentinelPath: string;
   pidfilePath: string;
+  bridgeJsonPath: string;
 }
 
 let _paths: AppPaths | null = null;
@@ -39,6 +40,7 @@ export function getPaths(): AppPaths {
     secretsJsonPath: join(userDataDir, "secrets.json"),
     migrationSentinelPath: join(userDataDir, ".migration-complete"),
     pidfilePath: join(userDataDir, "data", "plaud.lock"),
+    bridgeJsonPath: join(userDataDir, "bridge.json"),
   };
   return _paths;
 }

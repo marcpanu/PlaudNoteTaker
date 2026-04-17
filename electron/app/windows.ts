@@ -24,7 +24,7 @@ app.on("before-quit", () => {
 
 // ── Dev server URL detection ──────────────────────────────────────────────────
 
-function getDevServerUrl(name: "settings" | "logs"): string {
+function getDevServerUrl(name: "settings" | "logs" | "popover"): string {
   // Vite dev server ports: settings=5173 (default), logs=5174
   // Agent B will set these up; we use Forge's VITE_DEV_SERVER_URL env convention
   const base = process.env[`VITE_DEV_SERVER_URL`];
@@ -35,14 +35,14 @@ function getDevServerUrl(name: "settings" | "logs"): string {
   return `http://localhost:5173/${name}/index.html`;
 }
 
-function getProductionUrl(name: "settings" | "logs"): string {
+function getProductionUrl(name: "settings" | "logs" | "popover"): string {
   // In packaged app, renderer HTML is loaded from file://
   // Forge Vite plugin writes renderer output to .vite/renderer/{name}/
   const rendererPath = join(process.resourcesPath, "app.asar", ".vite", "renderer", name, "index.html");
   return `file://${rendererPath}`;
 }
 
-function getWindowUrl(name: "settings" | "logs"): string {
+export function getWindowUrl(name: "settings" | "logs" | "popover"): string {
   if (app.isPackaged) {
     return getProductionUrl(name);
   }

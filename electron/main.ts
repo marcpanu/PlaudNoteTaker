@@ -22,10 +22,13 @@ import { status as migrationStatus } from "./app/migration.js";
 import { loadConfigFromApp } from "../src/config/app-loader.js";
 import { getSecret } from "./app/secrets.js";
 import type { SecretKey } from "./app/secrets.js";
-import { start as serviceStart, stop as serviceStop } from "./app/service.js";
+import { start as serviceStart, stop as serviceStop, getVaultPath } from "./app/service.js";
 import { attach as iconStateAttach, detach as iconStateDetach } from "./app/icon-state.js";
 import { openSettings, openLogs, registerSettingsShortcut } from "./app/windows.js";
 import { registerIpcHandlers } from "./app/ipc-handlers.js";
+import { togglePopover, showPopover } from "./app/popover-window.js";
+import { setupNotifications } from "./app/notifications.js";
+import { startBridge, stopBridge } from "./app/bridge.js";
 
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
@@ -38,9 +41,13 @@ if (!gotLock) {
   app.quit();
 } else {
   app.on("second-instance", () => {
-    // Phase 4: focus the popover here. For Phase 3, open Settings.
-    console.log("[main] second-instance detected — opening Settings");
-    openSettings();
+    // Phase 4: focus the popover (if tray is ready), else open Settings.
+    console.log("[main] second-instance detected — opening popover");
+    if (tray && !tray.isDestroyed()) {
+      showPopover(tray);
+    } else {
+      openSettings();
+    }
   });
 }
 
@@ -101,6 +108,12 @@ function createTray(): Tray {
     { role: "quit", label: "Quit" },
   ]);
   t.setContextMenu(contextMenu);
+
+  // Left-click opens/closes the popover
+  t.on("click", () => {
+    togglePopover(t);
+  });
+
   return t;
 }
 
@@ -257,6 +270,18 @@ app.whenReady().then(async () => {
     openSettings();
   }
 
+  // 12. Initialize notifications + subscribe to service events
+  setupNotifications(userDataDir);
+  console.log("[main] notifications initialized");
+
+  // 13. Start loopback HTTP bridge (127.0.0.1 only, ephemeral port, bridge.json written)
+  startBridge({
+    userDataDir,
+    getVaultPath,
+  }).catch((err: unknown) => {
+    console.error("[main] bridge failed to start:", err);
+  });
+
   console.log(
     `[smoke-summary] eagle=${eagleResult} ffmpeg=${ffmpeg.ok ? "ok" : "fail"} packaged=${app.isPackaged} ` +
     `migration=${migStatus.kind} config=${config ? "loaded" : "null"}`,
@@ -268,6 +293,7 @@ app.whenReady().then(async () => {
 
 app.on("before-quit", async () => {
   console.log("[main] before-quit");
+  await stopBridge();
   await serviceStop();
   iconStateDetach();
   detachLogBuffer();

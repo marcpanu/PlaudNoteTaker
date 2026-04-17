@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';" />
+    <title>Plaud Obsidian Note Taker</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <!-- Header row: app name + daemon status dot -->
+    <header class="popover-header">
+      <span class="popover-header__title">Plaud Note Taker</span>
+      <span class="status-dot status-dot--idle" id="status-dot" title="Idle"></span>
+    </header>
+
+    <!-- Recent notes list -->
+    <section class="notes-section">
+      <div class="notes-list" id="notes-list">
+        <!-- Populated by index.ts -->
+      </div>
+      <div class="notes-empty hidden" id="notes-empty">
+        No notes yet. New recordings will appear here.
+      </div>
+    </section>
+
+    <!-- Footer strip: last poll + last error -->
+    <footer class="popover-footer">
+      <span class="footer-text" id="footer-poll">—</span>
+      <span class="footer-error hidden" id="footer-error"></span>
+    </footer>
+
+    <!-- Button row -->
+    <div class="btn-row">
+      <button class="btn btn--primary btn--sm" id="btn-poll-now">Poll Now</button>
+      <button class="btn btn--secondary btn--sm" id="btn-toggle-daemon">Stop</button>
+      <button class="btn btn--ghost btn--sm btn--icon" id="btn-settings" title="Settings">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M7 9a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" fill="currentColor"/>
+          <path fill-rule="evenodd" clip-rule="evenodd" d="M5.67 1.22a.75.75 0 0 1 2.66 0l.24.72a4.5 4.5 0 0 1 .9.52l.75-.17a.75.75 0 0 1 .85.43l.33.75a.75.75 0 0 1-.24.93l-.62.44c.01.12.01.24.01.36s0 .24-.01.36l.62.44a.75.75 0 0 1 .24.93l-.33.75a.75.75 0 0 1-.85.43l-.75-.17a4.5 4.5 0 0 1-.9.52l-.24.72a.75.75 0 0 1-2.66 0l-.24-.72a4.5 4.5 0 0 1-.9-.52l-.75.17a.75.75 0 0 1-.85-.43l-.33-.75a.75.75 0 0 1 .24-.93l.62-.44A4.5 4.5 0 0 1 3.5 7c0-.12 0-.24.01-.36l-.62-.44a.75.75 0 0 1-.24-.93l.33-.75a.75.75 0 0 1 .85-.43l.75.17a4.5 4.5 0 0 1 .9-.52l.24-.72z" fill="currentColor"/>
+        </svg>
+        Settings
+      </button>
+      <button class="btn btn--ghost btn--sm" id="btn-logs">Logs</button>
+    </div>
+
+    <script type="module" src="./index.ts"></script>
+  </body>
+</html>

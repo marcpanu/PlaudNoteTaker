@@ -1,0 +1,290 @@
+/* ============================================================
+   Plaud Obsidian Note Taker — Popover window stylesheet
+   macOS native feel: system font, neutral grays, #007aff accent
+   320px wide, height fits content
+   ============================================================ */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+
+  /* Light mode palette */
+  --bg:              #f5f5f7;
+  --surface:         #ffffff;
+  --border:          #d2d2d7;
+  --text:            #1d1d1f;
+  --text-secondary:  #6e6e73;
+  --accent:          #007aff;
+  --accent-hover:    #0062cc;
+  --danger:          #ff3b30;
+  --success:         #34c759;
+  --warn:            #ff9f0a;
+
+  --radius-sm:       6px;
+  --radius:          8px;
+
+  --shadow-sm:       0 1px 3px rgba(0,0,0,.08);
+  --shadow:          0 4px 16px rgba(0,0,0,.14);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:              #1c1c1e;
+    --surface:         #2c2c2e;
+    --border:          #3a3a3c;
+    --text:            #f5f5f7;
+    --text-secondary:  #98989d;
+  }
+}
+
+html, body {
+  width: 320px;
+  font-family: var(--font);
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface);
+  -webkit-font-smoothing: antialiased;
+  /* No fixed height — popover height fits content */
+  overflow: hidden;
+}
+
+/* ---- Header ---- */
+.popover-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px 9px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.popover-header__title {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* ---- Status dot ---- */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.status-dot--idle    { background: var(--success); }
+.status-dot--polling {
+  background: var(--warn);
+  animation: pulse 1s ease-in-out infinite;
+}
+.status-dot--error   { background: var(--danger); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+/* ---- Notes section ---- */
+.notes-section {
+  max-height: 340px;
+  overflow-y: auto;
+  background: var(--surface);
+}
+
+.notes-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.note-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.1s;
+  text-decoration: none;
+  color: inherit;
+}
+
+.note-row:hover {
+  background: var(--bg);
+}
+
+.note-row:last-child {
+  border-bottom: none;
+}
+
+.note-row__name {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.note-row__meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.note-row__status {
+  font-size: 10.5px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.note-row__status--saved {
+  background: rgba(52, 199, 89, 0.15);
+  color: var(--success);
+}
+
+.note-row__status--skipped {
+  background: rgba(110, 110, 115, 0.15);
+  color: var(--text-secondary);
+}
+
+/* ---- Empty state ---- */
+.notes-empty {
+  padding: 24px 14px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* ---- Footer strip ---- */
+.popover-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 7px 14px 6px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.footer-text {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.footer-error {
+  font-size: 11px;
+  color: var(--danger);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- Button row ---- */
+.btn-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px 10px;
+  background: var(--bg);
+}
+
+/* ---- Buttons ---- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: background 0.12s, opacity 0.12s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn--primary {
+  background: var(--accent);
+  color: #fff;
+}
+
+.btn--primary:not(:disabled):hover {
+  background: var(--accent-hover);
+}
+
+.btn--secondary {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn--secondary:not(:disabled):hover {
+  background: var(--border);
+}
+
+.btn--ghost {
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn--ghost:not(:disabled):hover {
+  background: rgba(0,0,0,.06);
+}
+
+@media (prefers-color-scheme: dark) {
+  .btn--ghost:not(:disabled):hover {
+    background: rgba(255,255,255,.06);
+  }
+}
+
+.btn--sm {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.btn--icon svg {
+  flex-shrink: 0;
+}
+
+/* Spinning indicator on poll button */
+.btn--polling::before {
+  content: "";
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 2px solid rgba(255,255,255,.4);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin-right: 4px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.hidden {
+  display: none !important;
+}
