@@ -152,17 +152,81 @@ Explicitly excluded. Documented to prevent scope creep and re-invention.
 
 ## Traceability
 
-Populated by roadmapper. Each requirement maps to exactly one phase.
+Each v1 requirement maps to exactly one phase. See `.planning/ROADMAP.md` for phase details.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| (Populated during roadmap creation) | — | Pending |
+| SHAR-01 | Phase 1 — Shared Seams | Pending |
+| SHAR-02 | Phase 1 — Shared Seams | Pending |
+| SHAR-03 | Phase 1 — Shared Seams | Pending |
+| SHAR-04 | Phase 1 — Shared Seams | Pending |
+| SCAF-01 | Phase 2 — Electron Shell | Pending |
+| SCAF-02 | Phase 2 — Electron Shell | Pending |
+| SCAF-03 | Phase 2 — Electron Shell | Pending |
+| SCAF-04 | Phase 2 — Electron Shell | Pending |
+| SCAF-05 | Phase 2 — Electron Shell | Pending |
+| MBAR-01 | Phase 2 — Electron Shell | Pending |
+| MBAR-02 | Phase 2 — Electron Shell | Pending |
+| MBAR-06 | Phase 2 — Electron Shell | Pending |
+| MBAR-07 | Phase 2 — Electron Shell | Pending |
+| MIGR-01 | Phase 3 — Core Daemon | Pending |
+| MIGR-02 | Phase 3 — Core Daemon | Pending |
+| MIGR-03 | Phase 3 — Core Daemon | Pending |
+| MIGR-04 | Phase 3 — Core Daemon | Pending |
+| MIGR-05 | Phase 3 — Core Daemon | Pending |
+| MIGR-06 | Phase 3 — Core Daemon | Pending |
+| SETT-01 | Phase 3 — Core Daemon | Pending |
+| SETT-02 | Phase 3 — Core Daemon | Pending |
+| SETT-03 | Phase 3 — Core Daemon | Pending |
+| SETT-04 | Phase 3 — Core Daemon | Pending |
+| SETT-05 | Phase 3 — Core Daemon | Pending |
+| SETT-06 | Phase 3 — Core Daemon | Pending |
+| SETT-07 | Phase 3 — Core Daemon | Pending |
+| SPEK-01 | Phase 3 — Core Daemon | Pending |
+| SPEK-02 | Phase 3 — Core Daemon | Pending |
+| LLGN-01 | Phase 3 — Core Daemon | Pending |
+| LLGN-02 | Phase 3 — Core Daemon | Pending |
+| DAEM-01 | Phase 3 — Core Daemon | Pending |
+| DAEM-02 | Phase 3 — Core Daemon | Pending |
+| DAEM-03 | Phase 3 — Core Daemon | Pending |
+| DAEM-04 | Phase 3 — Core Daemon | Pending |
+| DAEM-05 | Phase 3 — Core Daemon | Pending |
+| LOGS-01 | Phase 3 — Core Daemon | Pending |
+| LOGS-02 | Phase 3 — Core Daemon | Pending |
+| LOGS-03 | Phase 3 — Core Daemon | Pending |
+| MBAR-05 | Phase 3 — Core Daemon | Pending |
+| MBAR-08 | Phase 3 — Core Daemon | Pending |
+| POPO-01 | Phase 4 — User Surface | Pending |
+| POPO-02 | Phase 4 — User Surface | Pending |
+| POPO-03 | Phase 4 — User Surface | Pending |
+| POPO-04 | Phase 4 — User Surface | Pending |
+| POPO-05 | Phase 4 — User Surface | Pending |
+| POPO-06 | Phase 4 — User Surface | Pending |
+| MBAR-03 | Phase 4 — User Surface | Pending |
+| MBAR-04 | Phase 4 — User Surface | Pending |
+| NOTF-01 | Phase 4 — User Surface | Pending |
+| NOTF-02 | Phase 4 — User Surface | Pending |
+| NOTF-03 | Phase 4 — User Surface | Pending |
+| NOTF-04 | Phase 4 — User Surface | Pending |
+| BRDG-01 | Phase 4 — User Surface | Pending |
+| BRDG-02 | Phase 4 — User Surface | Pending |
+| BRDG-03 | Phase 4 — User Surface | Pending |
+| BRDG-04 | Phase 4 — User Surface | Pending |
+| BRDG-05 | Phase 4 — User Surface | Pending |
+| BRDG-06 | Phase 4 — User Surface | Pending |
+| PLUG-01 | Phase 5 — Obsidian Plugin | Pending |
+| PLUG-02 | Phase 5 — Obsidian Plugin | Pending |
+| PLUG-03 | Phase 5 — Obsidian Plugin | Pending |
+| PLUG-04 | Phase 5 — Obsidian Plugin | Pending |
+| PLUG-05 | Phase 5 — Obsidian Plugin | Pending |
+| PLUG-06 | Phase 5 — Obsidian Plugin | Pending |
+| PLUG-07 | Phase 5 — Obsidian Plugin | Pending |
 
 **Coverage:**
 - v1 requirements: 65 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 65 ⚠️
+- Mapped to phases: 65
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-04-16*
-*Last updated: 2026-04-16 after initial definition*
+*Traceability populated: 2026-04-16 by roadmapper*
