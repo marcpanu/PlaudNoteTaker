@@ -1,7 +1,9 @@
 /**
  * Settings + Logs window factories.
  *
- * Close-to-menubar semantics: windows hide rather than destroy on close.
+ * Close-to-menubar semantics: windows hide rather than destroy on close,
+ * UNLESS the app is actually quitting (in which case they close normally
+ * so app.quit() can complete).
  * Cmd-, opens Settings from the global menu even though there's no menu bar.
  */
 
@@ -12,6 +14,13 @@ import { dirname } from "node:path";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+// Tracks whether we're in the app.quit() flow so close handlers can stop
+// blocking the quit. Set true on `before-quit`, read by window `close` handlers.
+let isQuitting = false;
+app.on("before-quit", () => {
+  isQuitting = true;
+});
 
 // ── Dev server URL detection ──────────────────────────────────────────────────
 
@@ -66,12 +75,19 @@ export function openSettings(): void {
 
   settingsWindow.on("ready-to-show", () => {
     settingsWindow?.show();
+    // In dev mode, open DevTools automatically so preload/IPC problems are
+    // visible without digging through Cmd+Opt+I.
+    if (!app.isPackaged) {
+      settingsWindow?.webContents.openDevTools({ mode: "detach" });
+    }
   });
 
-  // Close-to-menubar: hide instead of destroy
+  // Close-to-menubar: hide instead of destroy, UNLESS app is actually quitting.
   settingsWindow.on("close", (e) => {
-    e.preventDefault();
-    settingsWindow?.hide();
+    if (!isQuitting) {
+      e.preventDefault();
+      settingsWindow?.hide();
+    }
   });
 
   settingsWindow.on("closed", () => {
@@ -113,12 +129,17 @@ export function openLogs(): void {
 
   logsWindow.on("ready-to-show", () => {
     logsWindow?.show();
+    if (!app.isPackaged) {
+      logsWindow?.webContents.openDevTools({ mode: "detach" });
+    }
   });
 
-  // Close-to-menubar
+  // Close-to-menubar, unless app is actually quitting.
   logsWindow.on("close", (e) => {
-    e.preventDefault();
-    logsWindow?.hide();
+    if (!isQuitting) {
+      e.preventDefault();
+      logsWindow?.hide();
+    }
   });
 
   logsWindow.on("closed", () => {

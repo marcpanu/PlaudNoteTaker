@@ -90,4 +90,9 @@ const plaudApi: PlaudApi = {
   },
 };
 
-contextBridge.exposeInMainWorld("plaudApi", plaudApi);
+try {
+  contextBridge.exposeInMainWorld("plaudApi", plaudApi);
+  console.log("[preload] plaudApi exposed on window");
+} catch (err) {
+  console.error("[preload] contextBridge.exposeInMainWorld failed:", err);
+}
