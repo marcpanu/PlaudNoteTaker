@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 2: Electron Shell — Signed, Notarized, Eagle-Verified** — Boot a signed+notarized `.app` with menubar icon, no Dock, that proves Eagle native module runs in Electron's main process
 - [x] **Phase 3: Core Daemon — Migration, Config, Poll Loop, Settings, Logs** — App performs the full pipeline in the background with Keychain-stored keys, migrated state, live logs, and a configurable Settings window
 - [x] **Phase 4: User Surface — Popover, Notifications, HTTP Bridge** — App feels like a native menubar tool (popover, notifications, status icon states) and exposes a loopback HTTP bridge for Obsidian
-- [ ] **Phase 5: Obsidian Plugin — Match Speakers Button** — Notes containing an Unknown Speakers callout render a one-click button that drives the daemon's label-and-enroll flow
+- [x] **Phase 5: Obsidian Plugin — Unified plugin with Match Speakers button** — existing obsidian-note-taker merged into repo as obsidian-plugin/, Eagle routed through daemon bridge (single SDK, single profile store), Match Speakers button injected into Unknown Speakers callouts
 
 ## Phase Details
 
@@ -131,8 +131,9 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 05-01: Plugin scaffold (manifest, esbuild, settings tab with port + test connection) + `MarkdownRenderChild` button injection + idempotence guard + graceful daemon-unreachable handling
-- [ ] 05-02: `requestUrl` label call with bearer token from `bridge.json` + tri-state UI + end-to-end verification against a real daemon
+- [x] 05-01: Bridge extensions — `/config/api-keys`, `/speakers`, `/speakers/:name`, `/speakers/enroll`, `/speakers/recognize`
+- [x] 05-02: Plugin copy + bridge client + de-Eagle-ize (drop `@picovoice/eagle-web`, wire `bridge-client.ts`, API-key refresh on startup with plugin-settings fallback, build script deploys to vault)
+- [x] 05-03: `MarkdownRenderChild` "Match speakers" button on Unknown Speakers callouts via `registerMarkdownPostProcessor`; tri-state UI; graceful daemon-down handling
 
 ## Progress
 
@@ -145,7 +146,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 (decimal phases inser
 | 2. Electron Shell — Signed, Notarized, Eagle-Verified | 2/3 | ◆ 2a done, 2b (signing) pending | - |
 | 3. Core Daemon — Migration, Config, Poll Loop, Settings, Logs | 3/3 | ✓ Complete | 2026-04-17 |
 | 4. User Surface — Popover, Notifications, HTTP Bridge | 3/3 | ✓ Complete | 2026-04-17 |
-| 5. Obsidian Plugin — Match Speakers Button | 0/2 | Not started | - |
+| 5. Obsidian Plugin — Unified plugin with Match Speakers button | 3/3 | ✓ Complete | 2026-04-17 |
 
 ---
 *Roadmap created: 2026-04-16*

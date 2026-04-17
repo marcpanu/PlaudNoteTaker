@@ -5,15 +5,15 @@
 See: .planning/PROJECT.md (updated 2026-04-16)
 
 **Core value:** New Plaud recordings land in Obsidian as polished notes without the user ever opening a terminal, and labeling unknown speakers is a single click inside the note.
-**Current focus:** Phase 4 complete — Phase 5 (user has a different approach in mind) and Phase 2b (signing + notarization) remain
+**Current focus:** Phase 5 complete — only Phase 2b (signing + notarization) remains before milestone complete.
 
 ## Current Position
 
-Phase: 4 of 5 complete
-Status: Phase 4 shipped end-to-end. Packaged app has popover with recent notes (max(10, 72h) rule), native notifications fire on note-saved + errors, and a Hono HTTP bridge on 127.0.0.1 serves /health + /label-speakers with 32-byte hex bearer auth. LAN access verified denied.
-Last activity: 2026-04-17 — Phase 4 integrated. 18/18 Phase 4 requirements complete. bridge.json written at userDataDir/bridge.json (mode 0600). Phase 3 followups included: migration-import try/catch + pollInterval ms↔s unit fix + max(10,72h) recent-notes rule.
+Phase: 5 of 5 complete
+Status: Existing `/Users/marcpanu/CodeRepos/obsidian-note-taker` plugin merged into repo as `obsidian-plugin/`. All Eagle operations routed through the daemon's HTTP bridge (single SDK = single profile store). Match Speakers button injected into Unknown Speakers callouts via registerMarkdownPostProcessor. Plugin no longer depends on @picovoice/eagle-web.
+Last activity: 2026-04-17 — Phase 5 integrated in 3 plans. Empirical cross-SDK test (scripts/test-cross-sdk-profile.ts) confirmed eagle-web and eagle-node profile formats are incompatible (web SDK bytes produce NaN scores in node SDK). This drove the plugin-as-bridge-client architecture. Plugin deployed to vault at ~/obsidian-vault/.obsidian/plugins/ai-notetaker/main.js via `npm run build`.
 
-Progress: [████████░░] 80%
+Progress: [██████████] 100% of build scope (Phase 2b signing/notarization is a polish step independent of functional scope)
 
 ## Performance Metrics
 

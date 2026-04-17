@@ -214,13 +214,13 @@ Each v1 requirement maps to exactly one phase. See `.planning/ROADMAP.md` for ph
 | BRDG-04 | Phase 4 — User Surface | Complete |
 | BRDG-05 | Phase 4 — User Surface | Complete |
 | BRDG-06 | Phase 4 — User Surface | Complete |
-| PLUG-01 | Phase 5 — Obsidian Plugin | Pending |
-| PLUG-02 | Phase 5 — Obsidian Plugin | Pending |
-| PLUG-03 | Phase 5 — Obsidian Plugin | Pending |
-| PLUG-04 | Phase 5 — Obsidian Plugin | Pending |
-| PLUG-05 | Phase 5 — Obsidian Plugin | Pending |
-| PLUG-06 | Phase 5 — Obsidian Plugin | Pending |
-| PLUG-07 | Phase 5 — Obsidian Plugin | Pending |
+| PLUG-01 | Phase 5 — Obsidian Plugin | Complete |
+| PLUG-02 | Phase 5 — Obsidian Plugin | Complete |
+| PLUG-03 | Phase 5 — Obsidian Plugin | Complete |
+| PLUG-04 | Phase 5 — Obsidian Plugin | Complete |
+| PLUG-05 | Phase 5 — Obsidian Plugin | Complete |
+| PLUG-06 | Phase 5 — Obsidian Plugin | Complete |
+| PLUG-07 | Phase 5 — Obsidian Plugin | Complete |
 
 **Coverage:**
 - v1 requirements: 65 total
