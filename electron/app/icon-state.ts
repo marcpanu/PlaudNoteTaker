@@ -16,7 +16,10 @@ let _lastState: DaemonState = { kind: "idle", lastPollAt: null, lastError: null 
 /** Attach the icon-state manager to a tray instance. */
 export function attach(tray: Tray): void {
   _tray = tray;
-  applyState(_lastState);
+  // NOTE: do NOT call applyState here. createTray() in main.ts has already
+  // set the idle template icon; calling setImage() again immediately after
+  // Tray construction has been observed to cause the menubar icon to render
+  // invisibly on macOS. Only apply on actual state transitions below.
 }
 
 /** Detach (called on before-quit). */

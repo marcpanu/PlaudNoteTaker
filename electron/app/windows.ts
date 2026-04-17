@@ -137,9 +137,12 @@ export function closeLogs(): void {
 // ── Keyboard shortcut: Cmd-, → open Settings ─────────────────────────────────
 
 /**
- * Register a global application menu with just the Cmd-, accelerator.
- * Even though we hide the menu bar (LSUIElement app), the application menu
- * is still respected by the OS keyboard shortcut system.
+ * Register a global application menu.
+ *
+ * In LSUIElement apps the menu is invisible, but macOS still routes keyboard
+ * shortcuts through it. We need an Edit submenu with the standard roles so
+ * Cmd+C / Cmd+V / Cmd+X / Cmd+A / Cmd+Z work inside Settings and Logs
+ * windows — without the Edit submenu the renderer silently drops paste events.
  */
 export function registerSettingsShortcut(): void {
   const menu = Menu.buildFromTemplate([
@@ -153,6 +156,33 @@ export function registerSettingsShortcut(): void {
             openSettings();
           },
         },
+        { type: "separator" },
+        { role: "hide" },
+        { role: "hideOthers" },
+        { role: "unhide" },
+        { type: "separator" },
+        { role: "quit" },
+      ],
+    },
+    {
+      label: "Edit",
+      submenu: [
+        { role: "undo" },
+        { role: "redo" },
+        { type: "separator" },
+        { role: "cut" },
+        { role: "copy" },
+        { role: "paste" },
+        { role: "pasteAndMatchStyle" },
+        { role: "delete" },
+        { role: "selectAll" },
+      ],
+    },
+    {
+      label: "Window",
+      submenu: [
+        { role: "minimize" },
+        { role: "close" },
       ],
     },
   ]);
