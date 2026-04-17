@@ -11,9 +11,10 @@ import {
 	WorkspaceLeaf,
 	setIcon,
 	TFolder,
+	TFile,
+	FileSystemAdapter,
 } from "obsidian";
-import { createBridgeClient, BridgeClient } from "./bridge-client";
-import { registerMatchSpeakersProcessor } from "./match-speakers";
+import { createBridgeClient, BridgeClient, sliceSpeakerPcm } from "./bridge-client";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -189,11 +190,6 @@ export default class AINotetakerPlugin extends Plugin {
 			callback: () => this.activateSpeakerPanel(),
 		});
 
-		// Markdown post-processor: adds "Match speakers" button to Unknown
-		// Speakers callouts in notes produced by the PlaudNoteTaker daemon.
-		// Click → bridgeClient.labelSpeakers(notePath) → daemon applies labels +
-		// enrolls voices, same flow as the CLI `plaud label` command.
-		registerMatchSpeakersProcessor(this);
 	}
 
 	onunload() {
@@ -691,7 +687,8 @@ registerProcessor('streaming-send-processor', StreamingSendProcessor);
 			const markdown = this.buildMarkdown(transcriptText, geminiOutput, speakerMap);
 			this.insertIntoEditor(editor, markdown);
 
-			// Store data for deferred "Label Speakers" command
+			// Store for the auto-popup (and for deferred sidebar-button flow if the
+			// user dismisses the popup and comes back later in the same session).
 			this.lastUtterances = result.utterances ?? null;
 			this.lastFullPcm = fullPcm.length > 0 ? fullPcm : null;
 
@@ -701,10 +698,17 @@ registerProcessor('streaming-send-processor', StreamingSendProcessor);
 				(u) => !speakerMap?.has(u.speaker),
 			);
 			if (hasUnlabeled) {
-				new Notice(
-					'AI Notetaker: Done! Use "Label Speakers" to name unknown speakers.',
-					8000,
-				);
+				new Notice("AI Notetaker: Transcription complete — identify speakers.");
+				// Auto-popup: the user's mental context is loaded right after
+				// recording, so opening the modal immediately is the right time
+				// to prompt for names. If they dismiss, they can re-trigger via
+				// the sidebar's "Label Speakers in Note" button.
+				//
+				// Small delay lets insertIntoEditor's Obsidian editor update
+				// finish before labelSpeakersInNote reads the content back.
+				setTimeout(() => {
+					void this.labelSpeakersInNote(editor);
+				}, 50);
 			} else {
 				new Notice("AI Notetaker: Transcription complete!");
 			}
@@ -718,68 +722,187 @@ registerProcessor('streaming-send-processor', StreamingSendProcessor);
 		}
 	}
 
-	// -- Label Speakers (deferred) -------------------------------------------
+	// -- Label Speakers (unified flow for daemon + plugin notes) ---------------
 
+	/**
+	 * Single entry point for labeling speakers in any note.
+	 * Routes based on note content:
+	 *
+	 *   • DAEMON NOTE (written by the PlaudNoteTaker daemon, has the
+	 *     `> **Unknown Speakers**` callout): modal with blank inputs
+	 *     (daemon already auto-matched what it could; leftovers are genuinely
+	 *     unknown to Eagle). On save, write names into the callout, then POST
+	 *     /label-speakers so the daemon does substitution + enrollment from
+	 *     Plaud audio (the robust persistent path).
+	 *
+	 *   • PLUGIN-RECORDED NOTE (no callout): modal pre-filled with live
+	 *     recognition suggestions via /speakers/recognize (if in-memory PCM
+	 *     is still available). On save, do text substitution in the editor
+	 *     + enroll any newly-named speakers via /speakers/enroll with PCM
+	 *     sliced to that speaker's utterances capped at 30s.
+	 */
 	async labelSpeakersInNote(editor: Editor) {
 		const content = editor.getValue();
+		const file = this.app.workspace.getActiveFile();
 
-		// Find all "**Speaker X:**" patterns in the note
-		const speakerPattern = /\*\*Speaker ([A-Z]):\*\*/g;
-		const labels = new Set<string>();
-		let match;
-		while ((match = speakerPattern.exec(content)) !== null) {
-			labels.add(match[1]);
+		// Daemon notes carry the "Unknown Speakers" callout near the top.
+		const isDaemonNote = /^>\s*\*\*Unknown Speakers\*\*/m.test(content);
+
+		if (isDaemonNote) {
+			await this.labelDaemonNote(editor, content, file);
+		} else {
+			await this.labelPluginNote(editor, content);
+		}
+	}
+
+	/**
+	 * Daemon-note flow: note was written by the always-on daemon from a Plaud
+	 * recording. Plaud audio is the source of truth for enrollment (daemon
+	 * re-downloads it). Plugin's job is just to collect the names and hand off.
+	 */
+	private async labelDaemonNote(
+		editor: Editor,
+		content: string,
+		file: TFile | null,
+	) {
+		if (!file) {
+			new Notice("AI Notetaker: No active file.");
+			return;
 		}
 
+		// Parse speaker labels out of the callout. The daemon writes them as
+		// `> - Speaker A:` (with optional trailing text if user already typed).
+		const calloutLinePattern = /^>\s*-\s*Speaker ([A-Z]):\s*(.*)$/gm;
+		const labels: string[] = [];
+		const existingNames = new Map<string, string>();
+		let m: RegExpExecArray | null;
+		while ((m = calloutLinePattern.exec(content)) !== null) {
+			labels.push(m[1]);
+			if (m[2].trim()) existingNames.set(m[1], m[2].trim());
+		}
+
+		if (labels.length === 0) {
+			new Notice("AI Notetaker: Unknown Speakers callout is empty or malformed.");
+			return;
+		}
+
+		await this.refreshEnrolledSpeakers();
+
+		// Modal gets blank inputs (daemon's auto-matcher already had a shot; any
+		// names it could pin, it did). If the user had typed names into the
+		// callout before clicking the sidebar button, respect those as pre-fills.
+		const speakerMap = await new Promise<Map<string, string> | null>((resolve) => {
+			const modal = new SpeakerMappingModal(
+				this.app,
+				this,
+				labels.sort(),
+				null,
+				existingNames.size > 0 ? existingNames : null,
+				resolve,
+			);
+			modal.open();
+		});
+
+		if (!speakerMap || speakerMap.size === 0) return;
+
+		// Write names into the callout so the daemon's parseUnknownSpeakers()
+		// finds them. Replace each `> - Speaker A:` line with `> - Speaker A: <name>`.
+		let newContent = content;
+		for (const [label, name] of speakerMap) {
+			const lineRe = new RegExp(`^(>\\s*-\\s*Speaker ${label}:)\\s*.*$`, "m");
+			newContent = newContent.replace(lineRe, `$1 ${name}`);
+		}
+		await this.app.vault.modify(file, newContent);
+
+		// POST to daemon. It parses the callout, substitutes names throughout
+		// the note body, removes the callout, and enrolls new speakers from
+		// Plaud audio — single atomic operation, same code path as the CLI
+		// `plaud label` command.
+		const adapter = this.app.vault.adapter;
+		if (!(adapter instanceof FileSystemAdapter)) {
+			new Notice("AI Notetaker: desktop-only (need filesystem access).");
+			return;
+		}
+		const absPath = adapter.getFullPath(file.path);
+
+		try {
+			const result = await this.bridgeClient.labelSpeakers(absPath);
+			if (result.ok) {
+				new Notice(
+					`AI Notetaker: matched ${result.matched}, enrolled ${result.enrolled}.`,
+				);
+				await this.refreshEnrolledSpeakers();
+			} else {
+				new Notice(`AI Notetaker: ${result.error ?? "label failed"}.`);
+			}
+		} catch (err) {
+			const msg = err instanceof Error ? err.message : String(err);
+			if (msg.includes("Daemon not running")) {
+				new Notice("PlaudNoteTaker daemon is not running — cannot enroll speakers.");
+			} else {
+				new Notice(`AI Notetaker: ${msg}`);
+			}
+		}
+	}
+
+	/**
+	 * Plugin-note flow: in-Obsidian recording. We own the PCM (if still in
+	 * memory from this session) and do text editing via the Obsidian editor
+	 * directly. Per-speaker enrollment goes through /speakers/enroll with
+	 * pre-sliced PCM (30s cap per speaker to conserve Picovoice quota).
+	 */
+	private async labelPluginNote(editor: Editor, content: string) {
+		// Find `**Speaker X:**` patterns in the transcript.
+		const pattern = /\*\*Speaker ([A-Z]):\*\*/g;
+		const labels = new Set<string>();
+		let match: RegExpExecArray | null;
+		while ((match = pattern.exec(content)) !== null) {
+			labels.add(match[1]);
+		}
 		if (labels.size === 0) {
 			new Notice("AI Notetaker: No speaker labels found in this note.");
 			return;
 		}
+		const sortedLabels = [...labels].sort();
 
-		const speakerLabels = [...labels].sort();
-
-		// Build preview text for each speaker from the note content
+		// Preview utterances from the transcript (one per speaker) for the modal.
 		const previewUtterances: AssemblyAIUtterance[] = [];
-		for (const label of speakerLabels) {
-			const linePattern = new RegExp(`\\*\\*Speaker ${label}:\\*\\*\\s*(.+)`, "g");
-			const lineMatch = linePattern.exec(content);
-			if (lineMatch) {
-				previewUtterances.push({
-					speaker: label,
-					text: lineMatch[1],
-					start: 0,
-					end: 0,
-				});
+		for (const label of sortedLabels) {
+			const lineRe = new RegExp(`\\*\\*Speaker ${label}:\\*\\*\\s*(.+)`, "m");
+			const lm = lineRe.exec(content);
+			if (lm) {
+				previewUtterances.push({ speaker: label, text: lm[1], start: 0, end: 0 });
 			}
 		}
 
-		// Build suggestions from bridge recognition if we have stored PCM
+		// Live recognition against enrolled profiles — only possible if we still
+		// have the PCM and utterances from this session's recording. Daemon does
+		// the matching; plugin just pre-fills the modal.
 		let suggestions: Map<string, string> | null = null;
 		if (this.lastFullPcm && this.lastUtterances?.length) {
 			try {
-				const utterances = this.lastUtterances.map((u) => ({
+				const utts = this.lastUtterances.map((u) => ({
 					speaker: u.speaker,
 					start: u.start,
 					end: u.end,
 					text: u.text,
 				}));
-				const matches = await this.bridgeClient.recognizeSpeakers(this.lastFullPcm, utterances);
+				const matches = await this.bridgeClient.recognizeSpeakers(this.lastFullPcm, utts);
 				if (Object.keys(matches).length > 0) {
 					suggestions = new Map(Object.entries(matches));
 				}
 			} catch {
-				// daemon down — no suggestions
+				/* daemon down — modal opens without suggestions */
 			}
 		}
 
-		// Refresh enrolled names for autocomplete
 		await this.refreshEnrolledSpeakers();
 
 		const speakerMap = await new Promise<Map<string, string> | null>((resolve) => {
 			const modal = new SpeakerMappingModal(
 				this.app,
 				this,
-				speakerLabels,
+				sortedLabels,
 				previewUtterances.length > 0 ? previewUtterances : null,
 				suggestions,
 				resolve,
@@ -789,87 +912,96 @@ registerProcessor('streaming-send-processor', StreamingSendProcessor);
 
 		if (!speakerMap || speakerMap.size === 0) return;
 
-		// Replace "**Speaker X:**" with "**Name:**" in the editor
+		// Text substitution in the editor — **Speaker X:** → **Name:**.
 		let newContent = editor.getValue();
 		for (const [label, name] of speakerMap) {
-			const pattern = new RegExp(`\\*\\*Speaker ${label}:\\*\\*`, "g");
-			newContent = newContent.replace(pattern, `**${name}:**`);
+			newContent = newContent.replace(
+				new RegExp(`\\*\\*Speaker ${label}:\\*\\*`, "g"),
+				`**${name}:**`,
+			);
 		}
 		editor.setValue(newContent);
 
-		// Enroll new speakers from meeting audio via bridge if available
+		// Enrollment: only for names that the user TYPED in (i.e., weren't
+		// already pre-filled from recognition). A pre-filled name that the user
+		// didn't change is an already-enrolled speaker — substitution only, no
+		// re-enrollment.
 		if (this.lastFullPcm && this.lastUtterances) {
 			await this.enrollNewSpeakersFromMeeting(
 				speakerMap,
+				suggestions,
 				this.lastUtterances,
 				this.lastFullPcm,
 			);
+		} else {
+			// PCM is gone (user reopened Obsidian, labeling an old plugin note).
+			new Notice("No speaker profile created — recording audio no longer available.");
 		}
 
-		new Notice("AI Notetaker: Speaker labels updated!");
+		new Notice("AI Notetaker: speaker labels updated.");
 	}
 
 	// -- Enrollment from meeting audio (via bridge) --------------------------
 
+	/**
+	 * Enroll newly-named speakers from the just-recorded PCM.
+	 *
+	 * Skip rules (to avoid wasted Picovoice quota on redundant enrollments):
+	 *   • Name the user ACCEPTED from a recognition suggestion (unchanged pre-fill)
+	 *     → already enrolled → skip.
+	 *   • Name that already exists in the enrolled list (user typed a known name)
+	 *     → re-enrollment is pointless → skip.
+	 *   • Only names the user TYPED (different from or absent from suggestions)
+	 *     are treated as new enrollments.
+	 *
+	 * PCM is pre-sliced to that speaker's utterances, capped at 30 seconds
+	 * total — matches the CLI's MAX_SECONDS_PER_SPEAKER quota-conservation
+	 * behavior and keeps the HTTP payload small.
+	 */
 	private async enrollNewSpeakersFromMeeting(
 		speakerMap: Map<string, string>,
+		suggestions: Map<string, string> | null,
 		utterances: AssemblyAIUtterance[],
 		fullPcm: Int16Array,
 	) {
 		const existingNames = new Set(this.enrolledSpeakerNames);
 
+		// Normalize utterances to bridge-client shape for sliceSpeakerPcm.
+		const utts = utterances.map((u) => ({
+			speaker: u.speaker,
+			start: u.start,
+			end: u.end,
+			text: u.text,
+		}));
+
 		for (const [label, name] of speakerMap) {
+			// Accept-suggestion path: user left the pre-fill unchanged → already enrolled.
+			if (suggestions?.get(label) === name) continue;
+			// Name is already enrolled (user typed a known name for a different speaker).
 			if (existingNames.has(name)) continue;
 
-			const segments = utterances
-				.filter((u) => u.speaker === label)
-				.map((u) => ({ startMs: u.start, endMs: u.end }));
-
-			if (segments.length === 0) continue;
-
-			// Extract and concatenate PCM for this speaker's utterances
-			const EAGLE_SAMPLE_RATE = 16000;
-			const speakerPcmChunks: Int16Array[] = [];
-			for (const seg of segments) {
-				const startSample = Math.floor((seg.startMs / 1000) * EAGLE_SAMPLE_RATE);
-				const endSample = Math.min(
-					Math.ceil((seg.endMs / 1000) * EAGLE_SAMPLE_RATE),
-					fullPcm.length,
-				);
-				if (endSample > startSample) {
-					speakerPcmChunks.push(fullPcm.slice(startSample, endSample));
-				}
-			}
-			if (speakerPcmChunks.length === 0) continue;
-
-			// Concatenate all chunks
-			const totalLength = speakerPcmChunks.reduce((sum, c) => sum + c.length, 0);
-			const speakerPcm = new Int16Array(totalLength);
-			let offset = 0;
-			for (const chunk of speakerPcmChunks) {
-				speakerPcm.set(chunk, offset);
-				offset += chunk.length;
-			}
+			const speakerPcm = sliceSpeakerPcm(fullPcm, utts, label, 30);
+			if (speakerPcm.length === 0) continue;
 
 			try {
-				new Notice(`AI Notetaker: Enrolling "${name}" from meeting audio…`);
+				new Notice(`AI Notetaker: enrolling "${name}"…`);
 				const result = await this.bridgeClient.enrollSpeaker(name, speakerPcm);
-
 				if (result.ok) {
 					this.enrolledSpeakerNames = [...this.enrolledSpeakerNames, name];
 					this.refreshSpeakerPanel();
-					new Notice(`AI Notetaker: "${name}" enrolled successfully!`);
+					new Notice(`AI Notetaker: "${name}" enrolled.`);
 				} else {
-					new Notice(`AI Notetaker: Not enough audio to enroll "${name}" — try a longer meeting.`);
+					new Notice(
+						`AI Notetaker: not enough audio to enroll "${name}" (${result.error ?? "need longer utterances"}).`,
+					);
 				}
 			} catch (err) {
-				console.error(`AI Notetaker: Failed to enroll "${name}":`, err);
 				const msg = err instanceof Error ? err.message : String(err);
 				if (msg.includes("Daemon not running")) {
-					new Notice("PlaudNoteTaker daemon not running — speaker features unavailable");
-				} else {
-					new Notice(`AI Notetaker: Failed to enroll "${name}".`);
+					new Notice("PlaudNoteTaker daemon not running — cannot enroll speakers.");
+					return; // bail entire loop; daemon is unreachable
 				}
+				new Notice(`AI Notetaker: failed to enroll "${name}": ${msg}`);
 			}
 		}
 	}
@@ -1152,15 +1284,10 @@ class SpeakerMappingModal extends Modal {
 		contentEl.empty();
 
 		contentEl.createEl("h2", { text: "Identify Speakers" });
-		contentEl.createEl("p", {
-			text: "Name each speaker. New names will be enrolled for future recognition.",
-			cls: "setting-item-description",
-		});
 
 		const existingNames = this.plugin.getEnrolledSpeakerNames();
 
 		for (const label of this.speakerLabels) {
-			// Find a sample utterance for this speaker
 			const sample = this.utterances?.find((u) => u.speaker === label);
 			const preview = sample
 				? sample.text.length > 80
@@ -1169,7 +1296,7 @@ class SpeakerMappingModal extends Modal {
 				: "";
 
 			const row = contentEl.createEl("div");
-			row.style.cssText = "margin-bottom:16px;";
+			row.style.cssText = "margin-bottom:14px;";
 
 			const labelEl = row.createEl("div");
 			labelEl.style.cssText = "font-weight:600;margin-bottom:4px;";
@@ -1184,13 +1311,17 @@ class SpeakerMappingModal extends Modal {
 
 			const input = row.createEl("input", { type: "text" });
 			input.style.cssText = "width:100%;";
-			input.placeholder = "Enter name (e.g. Alice)";
+			input.placeholder = `Speaker ${label}`;
 
+			// Pre-fill with bridge-recognized match (if any). User types over
+			// to override, or leaves as-is to accept the suggestion. No
+			// separate accept/reject UI — typing IS the decision.
 			const suggestion = this.suggestions?.get(label);
 			if (suggestion) {
 				input.value = suggestion;
 			}
 
+			// Autocomplete against existing enrolled speakers.
 			if (existingNames.length > 0) {
 				const listId = `speaker-list-${label}`;
 				const datalist = row.createEl("datalist");
@@ -1205,18 +1336,19 @@ class SpeakerMappingModal extends Modal {
 		}
 
 		const btnContainer = contentEl.createEl("div");
-		btnContainer.style.cssText = "display:flex;gap:8px;margin-top:16px;justify-content:flex-end;";
+		btnContainer.style.cssText =
+			"display:flex;gap:8px;margin-top:16px;justify-content:flex-end;";
 
-		const skipBtn = btnContainer.createEl("button", { text: "Skip" });
-		skipBtn.addEventListener("click", () => {
+		const cancelBtn = btnContainer.createEl("button", { text: "Cancel" });
+		cancelBtn.addEventListener("click", () => {
 			this.resolved = true;
 			this.resolve(null);
 			this.close();
 		});
 
-		const applyBtn = btnContainer.createEl("button", { text: "Apply" });
-		applyBtn.addClass("mod-cta");
-		applyBtn.addEventListener("click", () => {
+		const saveBtn = btnContainer.createEl("button", { text: "Save" });
+		saveBtn.addClass("mod-cta");
+		saveBtn.addEventListener("click", () => {
 			const result = new Map<string, string>();
 			for (const [label, input] of this.nameInputs) {
 				const name = input.value.trim();

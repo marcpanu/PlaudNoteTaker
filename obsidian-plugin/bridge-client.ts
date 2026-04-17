@@ -151,3 +151,55 @@ export function createBridgeClient(): BridgeClient {
 		},
 	};
 }
+
+/**
+ * Concatenate a target speaker's utterance audio from a recording's full PCM,
+ * capped at `maxSeconds` total. Matches the quota-conserving behavior the CLI
+ * uses during Plaud recording enrollment (see src/speakers/eagle.ts MAX_SECONDS_PER_SPEAKER).
+ *
+ * Why client-side: Picovoice Eagle's enrollment quota is the scarce resource,
+ * and it only processes whatever audio we give it. Pre-slicing here means the
+ * HTTP payload to /speakers/enroll is ~30s not the full recording, AND we
+ * guarantee the daemon only sees this speaker's audio (not any other
+ * speaker's utterances in the recording, which would corrupt the profile).
+ *
+ * Assumes 16kHz mono Int16 PCM (what the plugin records at).
+ */
+export function sliceSpeakerPcm(
+	fullPcm: Int16Array,
+	utterances: Utterance[],
+	targetSpeaker: string,
+	maxSeconds = 30,
+): Int16Array {
+	const sampleRate = 16000;
+	const maxSamples = Math.floor(maxSeconds * sampleRate);
+	const targetUtts = utterances.filter((u) => u.speaker === targetSpeaker);
+
+	const slices: Int16Array[] = [];
+	let totalSamples = 0;
+
+	for (const utt of targetUtts) {
+		const startSample = Math.max(0, Math.floor((utt.start / 1000) * sampleRate));
+		const endSample = Math.min(
+			fullPcm.length,
+			Math.ceil((utt.end / 1000) * sampleRate),
+		);
+		if (endSample <= startSample) continue;
+
+		const remaining = maxSamples - totalSamples;
+		if (remaining <= 0) break;
+
+		const take = Math.min(endSample - startSample, remaining);
+		const slice = fullPcm.slice(startSample, startSample + take);
+		slices.push(slice);
+		totalSamples += slice.length;
+	}
+
+	const result = new Int16Array(totalSamples);
+	let offset = 0;
+	for (const slice of slices) {
+		result.set(slice, offset);
+		offset += slice.length;
+	}
+	return result;
+}
