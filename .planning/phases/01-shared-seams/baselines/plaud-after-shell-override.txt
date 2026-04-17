@@ -1,0 +1,14 @@
+PlaudNoteTaker config test
+
+ffmpeg: OK
+◇ injected env (10) from .env // tip: ⌘ enable debugging { debug: true }
+Config: OK
+Plaud API: OK — 1 device(s): Plaud Note Pro
+Recordings: 1 total
+Vault path: OK — 87 folders found
+Picovoice: configured
+Gemini model: gemini-3-flash-preview
+Poll interval: 60s
+Fallback folder: ShellOverrideFixture
+
+All checks passed. Run 'plaud start' to begin.

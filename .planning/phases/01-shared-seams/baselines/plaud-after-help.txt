@@ -1,0 +1,10 @@
+Usage: plaud <command> [args]
+
+Commands:
+  init                  Set up API keys and configuration
+  test                  Verify config and API connections
+  start                 Start polling for new recordings
+  label <note-file>     Apply speaker labels from a note file
+  speakers list         List enrolled speaker profiles
+  speakers delete <name> Delete a speaker profile
+

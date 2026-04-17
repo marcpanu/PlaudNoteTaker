@@ -1,0 +1,9 @@
+◇ injected env (11) from .env // tip: ◈ secrets for agents [www.dotenvx.com]
+Enrolled speakers (7):
+  - Craig Cassidy
+  - Edward Hickey
+  - Kit Ruddock
+  - Lindsay Harris
+  - Marc Panu
+  - Mike Prate
+  - Unknown
