@@ -1,5 +1,5 @@
 {
-  "name": "plaud-note-taker",
+  "name": "plaud-obsidian-note-taker",
   "version": "0.1.0",
   "description": "Plaud device audio → transcription/diarization → LLM summary → Obsidian vault",
   "main": ".vite/build/main.js",
