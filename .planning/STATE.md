@@ -64,8 +64,10 @@ None yet.
 
 ### Blockers/Concerns
 
-- **Phase 2 empirical gate**: Eagle native module in Electron 41 is architecturally certain but empirically unverified. The 20-line smoke test in Phase 2 (SCAF-03) resolves this. If it fails, fall back to Electron 40 before any Phase 3+ work.
+- ~~Phase 2 empirical gate~~ — RESOLVED: Eagle loads cleanly on Electron 41.2.1
 - **Phase 5 research flag**: `registerMarkdownPostProcessor` runs in Reading View only. Determine at start of Phase 5 whether Live Preview support is required; if yes, budget a `registerEditorExtension` spike.
+- **Picovoice quota**: user is at 99/100 min (as of 2026-04-17). Eagle works — confirmed via live CLI `plaud label` run that enrolled a new speaker successfully. Do NOT construct Eagle with a real key in any smoke test until quota resets. The `runEagleSmoke()` in `electron/main.ts` already defaults to `__invalid__` when `PICOVOICE_ACCESS_KEY` is unset, which is safe. Phase 4 (popover/notifications/bridge) and Phase 5 (Obsidian plugin) do not touch speakers and are unaffected.
+- **Possible minor bug in `src/cli/label.ts`**: re-running label on an already-labeled note did NOT early-exit with "already enrolled, skipping" — it re-enrolled Sarah from scratch on the second run, burning ~20 min of Eagle quota. Not Phase 3 scope; log for later triage.
 
 ## Session Continuity
 
