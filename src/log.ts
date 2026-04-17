@@ -1,19 +1,7 @@
-const startTime = Date.now();
-
-function timestamp(): string {
-  const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-  const now = new Date().toLocaleTimeString("en-US", { hour12: false });
-  return `[${now} +${elapsed}s]`;
-}
-
-export function log(...args: unknown[]): void {
-  console.log(timestamp(), ...args);
-}
-
-export function warn(...args: unknown[]): void {
-  console.warn(timestamp(), ...args);
-}
-
-export function error(...args: unknown[]): void {
-  console.error(timestamp(), ...args);
-}
+/**
+ * SHIM: preserves the public import path `./log.js` for all existing callers.
+ * Do not add logic here — it belongs in ./log/core.ts or ./log/sink-console.ts.
+ *
+ * Side effect on import: ./log/index.js auto-subscribes the console sink exactly once.
+ */
+export * from "./log/index.js";
