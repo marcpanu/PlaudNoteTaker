@@ -1,0 +1,19 @@
+{
+  "name": "plaud-obsidian-notetaker",
+  "version": "1.0.0",
+  "description": "Obsidian plugin that records audio and transcribes with speaker diarization using AssemblyAI. Speaker identification delegated to PlaudNoteTaker daemon via bridge.",
+  "main": "main.js",
+  "scripts": {
+    "build": "node esbuild.config.mjs && node scripts/deploy.mjs",
+    "dev": "node esbuild.config.mjs --watch"
+  },
+  "keywords": [],
+  "author": "Marc",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "esbuild": "^0.19.11",
+    "obsidian": "^1.4.11",
+    "typescript": "^5.3.3"
+  }
+}

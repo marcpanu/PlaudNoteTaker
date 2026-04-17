@@ -1,0 +1,9 @@
+{
+  "id": "ai-notetaker-003912",
+  "name": "AI Notetaker",
+  "version": "1.0.0",
+  "minAppVersion": "1.0.0",
+  "description": "Record audio and transcribe with speaker diarization using AssemblyAI, speaker identification using Picovoice and summarization using Gemini",
+  "author": "Marc Panu",
+  "isDesktopOnly": false
+}
