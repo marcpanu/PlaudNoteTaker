@@ -13,6 +13,7 @@ import {
 	TFolder,
 } from "obsidian";
 import { createBridgeClient, BridgeClient } from "./bridge-client";
+import { registerMatchSpeakersProcessor } from "./match-speakers";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -187,6 +188,12 @@ export default class AINotetakerPlugin extends Plugin {
 			name: "Open Speaker Panel",
 			callback: () => this.activateSpeakerPanel(),
 		});
+
+		// Markdown post-processor: adds "Match speakers" button to Unknown
+		// Speakers callouts in notes produced by the PlaudNoteTaker daemon.
+		// Click → bridgeClient.labelSpeakers(notePath) → daemon applies labels +
+		// enrolls voices, same flow as the CLI `plaud label` command.
+		registerMatchSpeakersProcessor(this);
 	}
 
 	onunload() {
