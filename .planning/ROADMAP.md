@@ -59,8 +59,9 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: Electron Forge + Vite scaffold, `@electron/rebuild` postinstall, hardened-runtime entitlements, signing + notarization pipeline, LSUIElement, single-instance lock, Cmd-Q quit, template menubar icon
-- [ ] 02-02: Eagle smoke test + ffmpeg bundling & afterSign codesigning (empirical gate — if Eagle fails in Electron 41, fall back to Electron 40 before any further phase work)
+- [x] 02-01: Electron Forge + Vite scaffold, `@electron/rebuild` postinstall, hardened-runtime entitlements, LSUIElement, single-instance lock, Cmd-Q quit, template menubar icon (signing/notarization split out to Phase 2b)
+- [x] 02-02: Eagle smoke test + ffmpeg bundling (Eagle ABI confirmed on Electron 41; afterSign codesigning split out to Phase 2b)
+- [ ] 02-b-01 (Phase 2b): Developer ID signing + notarytool notarization + DMG maker + ffmpeg afterSign codesign hook
 
 ---
 
@@ -141,7 +142,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 (decimal phases inser
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Shared Seams | 1/1 | ✓ Complete | 2026-04-16 |
-| 2. Electron Shell — Signed, Notarized, Eagle-Verified | 0/2 | Not started | - |
+| 2. Electron Shell — Signed, Notarized, Eagle-Verified | 2/3 | ◆ 2a done, 2b (signing) pending | - |
 | 3. Core Daemon — Migration, Config, Poll Loop, Settings, Logs | 0/3 | Not started | - |
 | 4. User Surface — Popover, Notifications, HTTP Bridge | 0/3 | Not started | - |
 | 5. Obsidian Plugin — Match Speakers Button | 0/2 | Not started | - |

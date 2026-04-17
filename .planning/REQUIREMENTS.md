@@ -160,15 +160,15 @@ Each v1 requirement maps to exactly one phase. See `.planning/ROADMAP.md` for ph
 | SHAR-02 | Phase 1 — Shared Seams | Complete |
 | SHAR-03 | Phase 1 — Shared Seams | Complete |
 | SHAR-04 | Phase 1 — Shared Seams | Complete |
-| SCAF-01 | Phase 2 — Electron Shell | Pending |
-| SCAF-02 | Phase 2 — Electron Shell | Pending |
-| SCAF-03 | Phase 2 — Electron Shell | Pending |
-| SCAF-04 | Phase 2 — Electron Shell | Pending |
-| SCAF-05 | Phase 2 — Electron Shell | Pending |
-| MBAR-01 | Phase 2 — Electron Shell | Pending |
-| MBAR-02 | Phase 2 — Electron Shell | Pending |
-| MBAR-06 | Phase 2 — Electron Shell | Pending |
-| MBAR-07 | Phase 2 — Electron Shell | Pending |
+| SCAF-01 | Phase 2a — Electron Shell | Complete |
+| SCAF-02 | Phase 2b — Signing & Notarization | Pending |
+| SCAF-03 | Phase 2a — Electron Shell | Complete |
+| SCAF-04 | Phase 2a/2b — Bundle + Codesign | Partial (bundle: done; codesign: pending 2b) |
+| SCAF-05 | Phase 2a — Electron Shell | Complete |
+| MBAR-01 | Phase 2a — Electron Shell | Complete |
+| MBAR-02 | Phase 2a — Electron Shell | Complete |
+| MBAR-06 | Phase 2a — Electron Shell | Complete |
+| MBAR-07 | Phase 2a — Electron Shell | Complete |
 | MIGR-01 | Phase 3 — Core Daemon | Pending |
 | MIGR-02 | Phase 3 — Core Daemon | Pending |
 | MIGR-03 | Phase 3 — Core Daemon | Pending |

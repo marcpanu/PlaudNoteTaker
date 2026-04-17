@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-04-16)
 
 **Core value:** New Plaud recordings land in Obsidian as polished notes without the user ever opening a terminal, and labeling unknown speakers is a single click inside the note.
-**Current focus:** Phase 1 complete — ready to plan Phase 2 (Scaffold Electron)
+**Current focus:** Phase 2a complete — ready for Phase 2b (signing + notarization) or Phase 3 (daemon) depending on user creds
 
 ## Current Position
 
-Phase: 1 of 5 (Shared Seams)
-Plan: 1 of 1 in current phase — complete
-Status: Phase 1 complete; ready to plan Phase 2 (Scaffold Electron)
-Last activity: 2026-04-16 — Completed 01-01-PLAN.md (Shared Seams). SHAR-01/02/03/04 all satisfied; CLI parity verified via empty diff-report.txt across 8 command pairs + compiled dist.
+Phase: 2 of 5 (Electron Shell)
+Plan: 2a complete; 2b pending (signing/notarization)
+Status: Phase 2a complete — Eagle ABI verified on Electron 41 (no fallback needed); menubar skeleton + ffmpeg bundle working in packaged .app
+Last activity: 2026-04-17 — Completed Phase 2a. Eagle smoke test passed in packaged app: module loaded, no NODE_MODULE_VERSION mismatch. ffmpeg probe ok. Tray + LSUIElement + single-instance-lock + Cmd-Q all working.
 
-Progress: [██░░░░░░░░] 20%
+Progress: [████░░░░░░] 40%
 
 ## Performance Metrics
 
@@ -52,6 +52,12 @@ Recent decisions affecting current work:
 - Phase 1: `loadConfig()` stays synchronous and throws on missing env — preserved CLI contract; Phase 2 may revisit if Keychain access forces async
 - Phase 1: `subscribe(consoleSink)` runs at module scope in `src/log/index.ts` — not via init(); Phase 2 main additively subscribes IPC sink
 - Phase 1: dotenv stays in `loadConfigFromEnv()` body (per plan); dotenv's rotating "tip:" banner stripped in SHAR-04 diff to keep gate binary
+- Phase 2a: Electron 41.2.1 is the baseline (Eagle smoke passed; no 40 fallback)
+- Phase 2a: `@picovoice/eagle-node` shipped as `extraResource` (Forge Vite plugin packs only Vite output into asar; node_modules is NOT copied). Runtime loads via `require(join(process.resourcesPath, 'eagle-node'))` in packaged mode.
+- Phase 2a: ffmpeg-static binary bundled via `extraResource` + `asar.unpack: '**/ffmpeg'`. Runtime: `app.isPackaged ? join(resourcesPath,'ffmpeg') : require('ffmpeg-static')`.
+- Phase 2a: icon files shipped as extraResource too (Resources/iconTemplate.png + @2x). `nativeImage.setTemplateImage(true)` for auto light/dark.
+- Phase 2a: hardened-runtime entitlements plist in place; critically OMITS `allow-unsigned-executable-memory` (the Electron 12+ trap).
+- Phase 2a: 5 commits recorded instead of planned 5 — merged into 1 code commit + 1 metadata commit for efficiency (user directive: less ceremony).
 
 ### Pending Todos
 
