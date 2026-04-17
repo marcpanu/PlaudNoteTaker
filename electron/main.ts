@@ -1,33 +1,51 @@
-// Phase 2a: Electron main process — menubar skeleton + Eagle smoke + ffmpeg probe.
-// Phase 3 adds: config load (Keychain), migration, service facade, poll loop, IPC.
+// Phase 3: Electron main process — full daemon wiring.
 // Phase 4 adds: popover window, notifications, HTTP bridge.
 
-import { app, Tray, Menu, nativeImage, dialog } from "electron";
+// ── CRITICAL: app.setName MUST be the first statement, before ANY safeStorage import ──
+// Pitfall 7: if app.name is not set before safeStorage is used, the Keychain entry is
+// created as "Chromium Safe Storage" and subsequent launches will re-prompt.
+import { app } from "electron";
+app.setName("Plaud Obsidian Note Taker");
+
+import { Tray, Menu, nativeImage, dialog } from "electron";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import { existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+
+// App subsystems (all imports after app.setName)
+import { getPaths, ensureDirs, ffmpegPath, trayIconPath } from "./app/paths.js";
+import { acquireLock, releaseLock } from "./app/single-instance.js";
+import { attach as attachLogBuffer, detach as detachLogBuffer } from "./app/log-buffer.js";
+import { status as migrationStatus } from "./app/migration.js";
+import { loadConfigFromApp } from "../src/config/app-loader.js";
+import { getSecret } from "./app/secrets.js";
+import type { SecretKey } from "./app/secrets.js";
+import { start as serviceStart, stop as serviceStop } from "./app/service.js";
+import { attach as iconStateAttach, detach as iconStateDetach } from "./app/icon-state.js";
+import { openSettings, openLogs, registerSettingsShortcut } from "./app/windows.js";
+import { registerIpcHandlers } from "./app/ipc-handlers.js";
 
 const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Single-instance lock. Second launch focuses the (eventual) window or no-ops.
+// ── Single-instance lock (Electron-level: second window focus) ────────────────
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   console.log("[main] another instance already running; exiting");
   app.quit();
 } else {
   app.on("second-instance", () => {
-    // Phase 4: focus the popover here. For 2a, no-op.
-    console.log("[main] second-instance detected");
+    // Phase 4: focus the popover here. For Phase 3, open Settings.
+    console.log("[main] second-instance detected — opening Settings");
+    openSettings();
   });
 }
 
 // Suppress macOS Dock icon defensively (LSUIElement in Info.plist is authoritative,
-// but dock.hide() ensures dev runs (npm run forge:start) also hide the Dock icon
-// before Info.plist is applied via Forge packaging).
+// but dock.hide() ensures dev runs (npm run forge:start) also hide the Dock icon).
 if (process.platform === "darwin") {
   app.dock?.hide();
 }
@@ -39,31 +57,34 @@ app.on("window-all-closed", (e: Electron.Event) => {
 
 let tray: Tray | null = null;
 
-function resolveTrayIconPath(): string {
-  // Packaged: icon sits in Contents/Resources/ via forge.config.js extraResource.
-  // Dev (forge:start): main.ts bundles to .vite/build/main.js — icon is in repo at electron/assets/.
-  const candidates = app.isPackaged
-    ? [join(process.resourcesPath, "iconTemplate.png")]
-    : [
-        resolve(process.cwd(), "electron/assets/iconTemplate.png"),
-        resolve(__dirname, "../../electron/assets/iconTemplate.png"),
-      ];
-  for (const p of candidates) {
-    if (existsSync(p)) return p;
-  }
-  return candidates[0];
-}
-
-function createTray(): void {
-  const iconPath = resolveTrayIconPath();
+function createTray(): Tray {
+  const iconPath = trayIconPath({ state: "idle" });
   const icon = nativeImage.createFromPath(iconPath);
-  // Template images render correctly in light/dark menubars when marked as such.
   icon.setTemplateImage(true);
 
-  tray = new Tray(icon);
-  tray.setToolTip("Plaud Obsidian Note Taker");
+  const t = new Tray(icon);
+  t.setToolTip("Plaud Obsidian Note Taker");
 
   const contextMenu = Menu.buildFromTemplate([
+    {
+      label: "Settings…",
+      accelerator: "CmdOrCtrl+,",
+      click: () => { openSettings(); },
+    },
+    {
+      label: "Logs",
+      click: () => { openLogs(); },
+    },
+    {
+      label: "Poll Now",
+      click: () => {
+        const { pollNow } = require("./app/service.js") as typeof import("./app/service.js");
+        pollNow().catch((err: unknown) => {
+          console.error("[main] poll-now error:", err);
+        });
+      },
+    },
+    { type: "separator" },
     {
       label: `About ${app.name}`,
       click: () => {
@@ -79,23 +100,15 @@ function createTray(): void {
     { type: "separator" },
     { role: "quit", label: "Quit" },
   ]);
-  tray.setContextMenu(contextMenu);
+  t.setContextMenu(contextMenu);
+  return t;
 }
 
 /**
- * Eagle smoke test — THE Phase 2a gate.
+ * Eagle smoke test — preserved from Phase 2a.
  * Goal: prove @picovoice/eagle-node 3.0 loads under Electron's Node ABI.
- * Outcomes:
- *   ok                    → module loads, constructed successfully (valid key present)
- *   module loaded         → module loads, construction fails on invalid key (ABI is fine)
- *   ABI MISMATCH          → NODE_MODULE_VERSION error → pivot to Electron 40
- *   HARD FAIL             → any other error → investigate
  */
 function loadEagle(): { EagleProfiler: new (accessKey: string) => { version: string; release: () => void } } {
-  // In packaged app: @picovoice/eagle-node lives at process.resourcesPath/eagle-node
-  // (copied via forge.config.js extraResource). Forge renames extra resources to
-  // their basename, so node_modules/@picovoice/eagle-node → Resources/eagle-node.
-  // In dev: use the normal module resolution (node_modules is available).
   if (app.isPackaged) {
     const eagleDir = join(process.resourcesPath, "eagle-node");
     return require(eagleDir) as { EagleProfiler: new (key: string) => { version: string; release: () => void } };
@@ -135,7 +148,6 @@ function runEagleSmoke(): "ok" | "module loaded" | "abi mismatch" | "hard fail" 
     }
   }
 
-  // No access key available — still prove the native addon loads.
   try {
     const p = new EagleProfiler("__invalid__");
     console.log(`[eagle-smoke] unexpectedly constructed with invalid key; version=${p.version}`);
@@ -147,26 +159,16 @@ function runEagleSmoke(): "ok" | "module loaded" | "abi mismatch" | "hard fail" 
       console.error("[eagle-smoke] ABI MISMATCH — need Electron 40 fallback");
       return "abi mismatch";
     }
-    // Expected path: native addon loaded, rejected invalid key.
     console.log("[eagle-smoke] module loaded (invalid key, but ABI ok):", msg);
     return "module loaded";
   }
 }
 
 /**
- * ffmpeg probe — prove the bundled binary is resolvable and executable in both
- * dev and packaged contexts.
+ * ffmpeg probe — verify bundled binary is resolvable and executable.
  */
-function resolveFfmpegPath(): string {
-  if (app.isPackaged) {
-    return join(process.resourcesPath, "ffmpeg");
-  }
-  // Dev: use ffmpeg-static's exported path.
-  return require("ffmpeg-static") as string;
-}
-
 function runFfmpegProbe(): { ok: boolean; path: string; version?: string; error?: string } {
-  const path = resolveFfmpegPath();
+  const path = ffmpegPath();
   if (!existsSync(path)) {
     return { ok: false, path, error: `ffmpeg binary not found at ${path}` };
   }
@@ -181,27 +183,96 @@ function runFfmpegProbe(): { ok: boolean; path: string; version?: string; error?
   return { ok: true, path, version: firstLine };
 }
 
-app.whenReady().then(() => {
+// ── Main startup sequence ─────────────────────────────────────────────────────
+
+app.whenReady().then(async () => {
   console.log("[main] app ready");
-  createTray();
-  console.log("[main] tray created");
 
-  const eagleResult = runEagleSmoke();
-  console.log(`[eagle-smoke] result: ${eagleResult}`);
+  // 1. Ensure userDataDir and dataDir exist
+  ensureDirs();
+  const { userDataDir, dataDir } = getPaths();
+  console.log(`[main] paths ensured → userDataDir=${userDataDir} dataDir=${dataDir}`);
 
+  // 2. ffmpeg check — hard fail if missing (pipeline cannot work without it)
   const ffmpeg = runFfmpegProbe();
   if (ffmpeg.ok) {
-    console.log(`[ffmpeg-probe] ok — ${ffmpeg.version} (path: ${ffmpeg.path})`);
+    console.log(`[main] ffmpeg check ok — ${ffmpeg.version} (path: ${ffmpeg.path})`);
   } else {
-    console.error(`[ffmpeg-probe] FAIL — ${ffmpeg.error} (path: ${ffmpeg.path})`);
+    console.error(`[main] ffmpeg check FAIL — ${ffmpeg.error}`);
+    await dialog.showMessageBox({
+      type: "error",
+      title: "ffmpeg not found",
+      message: "ffmpeg binary is missing or not executable.",
+      detail: `Expected at: ${ffmpeg.path}\n\nThe app cannot process recordings without ffmpeg.`,
+      buttons: ["Quit"],
+    });
+    app.exit(1);
+    return;
   }
 
-  // Expose signals for headless verification.
+  // 3. Pidfile lock (coordinates with CLI)
+  const lockAcquired = await acquireLock();
+  if (!lockAcquired) {
+    // acquireLock already showed a dialog and called app.exit(1)
+    return;
+  }
+  console.log("[main] pidfile lock acquired");
+
+  // 4. Eagle smoke test (non-fatal — Eagle is optional)
+  const eagleResult = runEagleSmoke();
+  console.log(`[main] eagle smoke: ${eagleResult}`);
+
+  // 5. Attach log buffer to pub/sub BEFORE any service logs
+  attachLogBuffer();
+  console.log("[main] log buffer attached");
+
+  // 6. Check migration status
+  const migStatus = migrationStatus(userDataDir);
+  console.log(`[main] migration status: ${migStatus.kind}`);
+
+  // 7. Load config
+  const secretGetter = (key: string) => getSecret(key as SecretKey);
+  const config = await loadConfigFromApp(userDataDir, secretGetter);
+  if (config) {
+    console.log("[main] config loaded — starting daemon");
+    await serviceStart(config);
+  } else {
+    console.log("[main] config incomplete — daemon paused; opening Settings");
+  }
+
+  // 8. Create tray + attach icon-state
+  tray = createTray();
+  iconStateAttach(tray);
+  console.log("[main] tray created");
+
+  // 9. Register IPC handlers
+  registerIpcHandlers();
+  console.log("[main] IPC handlers registered");
+
+  // 10. Register Cmd-, shortcut
+  registerSettingsShortcut();
+
+  // 11. If migration source found or config incomplete, open Settings
+  if (migStatus.kind === "source_found" || !config) {
+    openSettings();
+  }
+
   console.log(
-    `[smoke-summary] eagle=${eagleResult} ffmpeg=${ffmpeg.ok ? "ok" : "fail"} packaged=${app.isPackaged}`,
+    `[smoke-summary] eagle=${eagleResult} ffmpeg=${ffmpeg.ok ? "ok" : "fail"} packaged=${app.isPackaged} ` +
+    `migration=${migStatus.kind} config=${config ? "loaded" : "null"}`,
   );
+}).catch((err) => {
+  console.error("[main] startup failed:", err);
+  app.exit(1);
 });
 
-app.on("before-quit", () => {
+app.on("before-quit", async () => {
   console.log("[main] before-quit");
+  await serviceStop();
+  iconStateDetach();
+  detachLogBuffer();
+  releaseLock();
+  if (tray && !tray.isDestroyed()) {
+    tray.destroy();
+  }
 });

@@ -8,9 +8,83 @@ import {
 } from "../state.js";
 import { processRecording } from "../pipeline.js";
 import { log, warn, error } from "../log.js";
+import { existsSync, mkdirSync, openSync, writeSync, closeSync, unlinkSync, readFileSync } from "fs";
+import { join } from "path";
+
+// ── CLI pidfile lock ──────────────────────────────────────────────────────────
+// Coordinates with the Electron app (electron/app/single-instance.ts).
+// Only `plaud start` acquires the lock; read-only commands bypass it.
+
+let _cliPidfilePath: string | null = null;
+
+function acquireCliLock(dataDir: string): boolean {
+  const pidfilePath = join(dataDir, "plaud.lock");
+  _cliPidfilePath = pidfilePath;
+
+  if (existsSync(pidfilePath)) {
+    let existingPid: number | null = null;
+    try {
+      const content = readFileSync(pidfilePath, "utf-8").trim();
+      existingPid = parseInt(content, 10);
+    } catch {
+      // Unreadable — stale lock
+    }
+
+    if (existingPid !== null && !isNaN(existingPid)) {
+      // Check if the owning process is alive
+      try {
+        process.kill(existingPid, 0);
+        // Process is alive — refuse to start
+        error(
+          `Plaud is already running (PID ${existingPid}). ` +
+          "Stop the existing instance first (Ctrl-C or quit the app).",
+        );
+        return false;
+      } catch {
+        // Process is dead — stale lock, remove and proceed
+        try { unlinkSync(pidfilePath); } catch { /* ignore */ }
+      }
+    }
+  }
+
+  try {
+    // Ensure dataDir exists before creating the lockfile
+    mkdirSync(dataDir, { recursive: true });
+
+    const fd = openSync(pidfilePath, "wx"); // O_WRONLY | O_CREAT | O_EXCL
+    writeSync(fd, String(process.pid));
+    closeSync(fd);
+    return true;
+  } catch (err) {
+    error("Failed to acquire CLI lock:", err);
+    return false;
+  }
+}
+
+function releaseCliLock(): void {
+  if (!_cliPidfilePath) return;
+  try {
+    if (existsSync(_cliPidfilePath)) {
+      unlinkSync(_cliPidfilePath);
+    }
+  } catch {
+    // Non-fatal
+  }
+}
 
 export async function runStart(): Promise<void> {
   const config = loadConfig();
+
+  // Acquire pidfile lock (coordinates with Electron app)
+  const lockAcquired = acquireCliLock(config.dataDir);
+  if (!lockAcquired) {
+    process.exit(1);
+  }
+
+  // Release lock on process exit
+  process.on("exit", releaseCliLock);
+  process.on("SIGINT", () => { releaseCliLock(); process.exit(0); });
+  process.on("SIGTERM", () => { releaseCliLock(); process.exit(0); });
 
   log("PlaudNoteTaker starting...");
   log(`  Vault: ${config.vaultPath}/${config.vaultNotesFolder}`);

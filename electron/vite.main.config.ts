@@ -12,6 +12,7 @@ export default defineConfig({
         "electron",
         "@picovoice/eagle-node",
         "ffmpeg-static",
+        "dotenv",
         // Node built-ins
         "node:fs",
         "node:path",

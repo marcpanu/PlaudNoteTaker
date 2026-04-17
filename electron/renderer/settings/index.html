@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';" />
+    <title>Settings — Plaud Obsidian Note Taker</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <!-- Migration banner (hidden by default) -->
+    <div id="migration-banner" class="banner banner--info hidden">
+      <div class="banner__body">
+        <strong>Import existing setup?</strong>
+        <span id="migration-banner-text"> A previous configuration was found.</span>
+      </div>
+      <div class="banner__actions">
+        <button id="btn-migration-import" class="btn btn--primary btn--sm">Import</button>
+        <button id="btn-migration-fresh" class="btn btn--ghost btn--sm">Start Fresh</button>
+      </div>
+    </div>
+
+    <!-- Config-incomplete banner (hidden by default) -->
+    <div id="incomplete-banner" class="banner banner--warn hidden">
+      <div class="banner__body">
+        <strong>Setup incomplete.</strong>
+        <span id="incomplete-banner-text"> Fill in the required fields below.</span>
+      </div>
+    </div>
+
+    <div class="layout">
+      <!-- Sidebar -->
+      <nav class="sidebar" role="navigation" aria-label="Settings tabs">
+        <ul class="sidebar__list">
+          <li><a href="#api-keys" class="sidebar__item" data-tab="api-keys">API Keys</a></li>
+          <li><a href="#vault" class="sidebar__item" data-tab="vault">Vault &amp; Templates</a></li>
+          <li><a href="#polling" class="sidebar__item" data-tab="polling">Polling &amp; Model</a></li>
+          <li><a href="#speakers" class="sidebar__item" data-tab="speakers">Speakers</a></li>
+          <li><a href="#about" class="sidebar__item" data-tab="about">About</a></li>
+        </ul>
+      </nav>
+
+      <!-- Content panels -->
+      <main class="content">
+        <!-- API Keys tab -->
+        <section id="tab-api-keys" class="tab-panel" role="tabpanel">
+          <h2 class="tab-panel__title">API Keys</h2>
+
+          <div class="field-group">
+            <label class="field-label" for="plaudBearerToken">Plaud Bearer Token <span class="required">*</span></label>
+            <div class="password-row">
+              <input class="field-input" type="password" id="plaudBearerToken" name="plaudBearerToken" autocomplete="off" placeholder="Bearer token from plaud.ai" />
+              <button class="btn-eye" type="button" aria-label="Show/hide" data-target="plaudBearerToken">👁</button>
+              <button class="btn-test btn--sm" type="button" data-provider="plaud" data-key-field="plaudBearerToken">Test</button>
+            </div>
+            <div class="test-result hidden" id="test-result-plaud"></div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="assemblyAiApiKey">AssemblyAI API Key <span class="required">*</span></label>
+            <div class="password-row">
+              <input class="field-input" type="password" id="assemblyAiApiKey" name="assemblyAiApiKey" autocomplete="off" placeholder="AssemblyAI API key" />
+              <button class="btn-eye" type="button" aria-label="Show/hide" data-target="assemblyAiApiKey">👁</button>
+              <button class="btn-test btn--sm" type="button" data-provider="assemblyai" data-key-field="assemblyAiApiKey">Test</button>
+            </div>
+            <div class="test-result hidden" id="test-result-assemblyai"></div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="geminiApiKey">Gemini API Key <span class="required">*</span></label>
+            <div class="password-row">
+              <input class="field-input" type="password" id="geminiApiKey" name="geminiApiKey" autocomplete="off" placeholder="Google Gemini API key" />
+              <button class="btn-eye" type="button" aria-label="Show/hide" data-target="geminiApiKey">👁</button>
+              <button class="btn-test btn--sm" type="button" data-provider="gemini" data-key-field="geminiApiKey">Test</button>
+            </div>
+            <div class="test-result hidden" id="test-result-gemini"></div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="picovoiceAccessKey">Picovoice Access Key <span class="hint">(optional — enables speaker ID)</span></label>
+            <div class="password-row">
+              <input class="field-input" type="password" id="picovoiceAccessKey" name="picovoiceAccessKey" autocomplete="off" placeholder="Picovoice Console access key" />
+              <button class="btn-eye" type="button" aria-label="Show/hide" data-target="picovoiceAccessKey">👁</button>
+              <button class="btn-test btn--sm" type="button" data-provider="picovoice" data-key-field="picovoiceAccessKey">Test</button>
+            </div>
+            <div class="test-result hidden" id="test-result-picovoice"></div>
+          </div>
+        </section>
+
+        <!-- Vault & Templates tab -->
+        <section id="tab-vault" class="tab-panel hidden" role="tabpanel">
+          <h2 class="tab-panel__title">Vault &amp; Templates</h2>
+
+          <div class="field-group">
+            <label class="field-label" for="vaultPath">Obsidian Vault Path <span class="required">*</span></label>
+            <div class="path-row">
+              <input class="field-input" type="text" id="vaultPath" name="vaultPath" placeholder="/Users/you/Obsidian/MyVault" />
+              <button class="btn btn--secondary btn--sm" type="button" id="btn-pick-vault">Choose…</button>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="vaultNotesFolder">Notes Folder <span class="required">*</span></label>
+            <input class="field-input" type="text" id="vaultNotesFolder" name="vaultNotesFolder" placeholder="Recordings (relative to vault root)" />
+            <p class="field-hint">Folder inside your vault where processed notes are written.</p>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="templatesPath">Templates Folder <span class="hint">(optional)</span></label>
+            <div class="path-row">
+              <input class="field-input" type="text" id="templatesPath" name="templatesPath" placeholder="/Users/you/Obsidian/MyVault/Templates" />
+              <button class="btn btn--secondary btn--sm" type="button" id="btn-pick-templates">Choose…</button>
+            </div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="selectedTemplate">Selected Template <span class="hint">(optional)</span></label>
+            <input class="field-input" type="text" id="selectedTemplate" name="selectedTemplate" placeholder="meeting-notes.md" />
+            <p class="field-hint">Filename of the template to use when creating notes.</p>
+          </div>
+        </section>
+
+        <!-- Polling & Model tab -->
+        <section id="tab-polling" class="tab-panel hidden" role="tabpanel">
+          <h2 class="tab-panel__title">Polling &amp; Model</h2>
+
+          <div class="field-group">
+            <label class="field-label" for="pollInterval">Poll Interval <span class="required">*</span></label>
+            <div class="inline-row">
+              <input class="field-input field-input--short" type="number" id="pollInterval" name="pollInterval" min="10" max="3600" step="1" placeholder="300" />
+              <span class="field-unit">seconds</span>
+            </div>
+            <p class="field-hint">How often to check for new Plaud recordings (10–3600 s).</p>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label" for="geminiModel">Gemini Model</label>
+            <input class="field-input" type="text" id="geminiModel" name="geminiModel" placeholder="gemini-2.5-flash" />
+            <p class="field-hint">Leave blank to use the default (gemini-2.5-flash).</p>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Launch at Login</label>
+            <label class="toggle">
+              <input type="checkbox" id="launchAtLogin" />
+              <span class="toggle__track"></span>
+              <span class="toggle__label">Start Plaud Obsidian Note Taker when you log in</span>
+            </label>
+          </div>
+        </section>
+
+        <!-- Speakers tab -->
+        <section id="tab-speakers" class="tab-panel hidden" role="tabpanel">
+          <h2 class="tab-panel__title">Speakers</h2>
+          <p class="tab-panel__desc">Enrolled speaker profiles used for automatic diarization labeling. Delete a profile to re-enroll from scratch.</p>
+          <div id="speakers-list" class="speakers-list">
+            <p class="speakers-empty">Loading…</p>
+          </div>
+        </section>
+
+        <!-- About tab -->
+        <section id="tab-about" class="tab-panel hidden" role="tabpanel">
+          <h2 class="tab-panel__title">About</h2>
+          <div class="about-block">
+            <p class="about-name">Plaud Obsidian Note Taker</p>
+            <p class="about-version" id="about-version">v0.1.0</p>
+            <p class="about-desc">Automatic transcription, diarization and LLM-powered note generation from your Plaud recordings — delivered straight into your Obsidian vault.</p>
+            <div class="about-links">
+              <a href="https://github.com/marcpanu/PlaudNoteTaker" class="about-link">GitHub</a>
+              <a href="https://plaud.ai" class="about-link">Plaud.ai</a>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <!-- Sticky footer -->
+    <footer class="footer">
+      <div class="footer__status" id="save-status"></div>
+      <button class="btn btn--primary" id="btn-save" disabled>Save</button>
+    </footer>
+
+    <script type="module" src="./index.ts"></script>
+  </body>
+</html>

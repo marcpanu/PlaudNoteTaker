@@ -67,7 +67,17 @@ export default {
             target: "preload",
           },
         ],
-        renderer: [],
+        // Agent B (Phase 3 renderer): Settings + Logs windows via shared multi-page Vite config.
+        renderer: [
+          {
+            name: "settings",
+            config: "electron/vite.renderer.config.ts",
+          },
+          {
+            name: "logs",
+            config: "electron/vite.renderer.config.ts",
+          },
+        ],
       },
     },
   ],
