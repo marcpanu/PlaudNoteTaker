@@ -18,7 +18,15 @@ import { writeFileSync, chmodSync } from "node:fs";
 import { resolve as pathResolve, sep } from "node:path";
 import type { ServerType } from "@hono/node-server";
 import { log } from "../../src/log/core.js";
-import { labelSpeakers } from "./service.js";
+import {
+  labelSpeakers,
+  getApiKeys,
+  listEnrolledSpeakers,
+  deleteEnrolledSpeaker,
+  enrollSpeakerFromPcm,
+  recognizeSpeakersFromPcm,
+} from "./service.js";
+import type { Utterance } from "../../src/transcription/assemblyai.js";
 import { getPaths } from "./paths.js";
 
 // ── Module-level state ────────────────────────────────────────────────────────
@@ -144,9 +152,97 @@ export async function startBridge(opts: BridgeOptions): Promise<void> {
     }
   });
 
+  // ── GET /config/api-keys ──────────────────────────────────────────────────
+  // Plugin fetches the daemon's loaded API keys at startup. Caching + fallback
+  // to plugin-local settings are the plugin's responsibility.
+  honoApp.get("/config/api-keys", (c) => {
+    const authHeader = c.req.header("Authorization");
+    if (!tokenIsValid(authHeader, token)) {
+      return c.json({ ok: false, error: "Unauthorized" }, 401);
+    }
+    const keys = getApiKeys();
+    if (!keys) return c.json({ ok: false, error: "Config not loaded" }, 503);
+    return c.json({ ok: true, keys });
+  });
+
+  // ── GET /speakers ─────────────────────────────────────────────────────────
+  honoApp.get("/speakers", (c) => {
+    const authHeader = c.req.header("Authorization");
+    if (!tokenIsValid(authHeader, token)) {
+      return c.json({ ok: false, error: "Unauthorized" }, 401);
+    }
+    return c.json({ ok: true, speakers: listEnrolledSpeakers() });
+  });
+
+  // ── DELETE /speakers/:name ────────────────────────────────────────────────
+  honoApp.delete("/speakers/:name", (c) => {
+    const authHeader = c.req.header("Authorization");
+    if (!tokenIsValid(authHeader, token)) {
+      return c.json({ ok: false, error: "Unauthorized" }, 401);
+    }
+    const name = decodeURIComponent(c.req.param("name"));
+    const removed = deleteEnrolledSpeaker(name);
+    return c.json({ ok: true, removed });
+  });
+
+  // ── POST /speakers/enroll ─────────────────────────────────────────────────
+  // Body: { name: string, pcm_base64: string (16kHz s16le mono) }
+  honoApp.post("/speakers/enroll", async (c) => {
+    const authHeader = c.req.header("Authorization");
+    if (!tokenIsValid(authHeader, token)) {
+      return c.json({ ok: false, error: "Unauthorized" }, 401);
+    }
+    let body: { name?: unknown; pcm_base64?: unknown };
+    try {
+      body = (await c.req.json()) as typeof body;
+    } catch {
+      return c.json({ ok: false, error: "Invalid JSON body" }, 400);
+    }
+    if (typeof body.name !== "string" || !body.name.trim()) {
+      return c.json({ ok: false, error: "Missing or invalid name" }, 400);
+    }
+    if (typeof body.pcm_base64 !== "string" || !body.pcm_base64) {
+      return c.json({ ok: false, error: "Missing pcm_base64" }, 400);
+    }
+    const buf = Buffer.from(body.pcm_base64, "base64");
+    const pcm = new Int16Array(buf.buffer, buf.byteOffset, buf.byteLength / 2);
+    const result = enrollSpeakerFromPcm(body.name.trim(), pcm);
+    return c.json(result);
+  });
+
+  // ── POST /speakers/recognize ──────────────────────────────────────────────
+  // Body: { pcm_base64: string, utterances: Utterance[] }
+  // Returns map of AssemblyAI speaker label → enrolled name for matched labels.
+  honoApp.post("/speakers/recognize", async (c) => {
+    const authHeader = c.req.header("Authorization");
+    if (!tokenIsValid(authHeader, token)) {
+      return c.json({ ok: false, error: "Unauthorized" }, 401);
+    }
+    let body: { pcm_base64?: unknown; utterances?: unknown };
+    try {
+      body = (await c.req.json()) as typeof body;
+    } catch {
+      return c.json({ ok: false, error: "Invalid JSON body" }, 400);
+    }
+    if (typeof body.pcm_base64 !== "string" || !body.pcm_base64) {
+      return c.json({ ok: false, error: "Missing pcm_base64" }, 400);
+    }
+    if (!Array.isArray(body.utterances)) {
+      return c.json({ ok: false, error: "Missing utterances array" }, 400);
+    }
+    const buf = Buffer.from(body.pcm_base64, "base64");
+    const pcm = new Int16Array(buf.buffer, buf.byteOffset, buf.byteLength / 2);
+    const matches = recognizeSpeakersFromPcm(pcm, body.utterances as Utterance[]);
+    return c.json({ ok: true, matches });
+  });
+
   // 405 for wrong methods on known routes
   honoApp.all("/health", (c) => c.json({ ok: false, error: "Method not allowed" }, 405));
   honoApp.all("/label-speakers", (c) => c.json({ ok: false, error: "Method not allowed" }, 405));
+  honoApp.all("/config/api-keys", (c) => c.json({ ok: false, error: "Method not allowed" }, 405));
+  honoApp.all("/speakers", (c) => c.json({ ok: false, error: "Method not allowed" }, 405));
+  honoApp.all("/speakers/enroll", (c) => c.json({ ok: false, error: "Method not allowed" }, 405));
+  honoApp.all("/speakers/recognize", (c) => c.json({ ok: false, error: "Method not allowed" }, 405));
 
   // ── Start server ──────────────────────────────────────────────────────────
 

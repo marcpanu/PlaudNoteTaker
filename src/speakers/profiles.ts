@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync } from "fs";
+import { readFileSync, writeFileSync, existsSync, renameSync, unlinkSync } from "fs";
 import { join } from "path";
 
 export interface SpeakerProfiles {
@@ -13,12 +13,29 @@ export function loadProfiles(dataDir: string): SpeakerProfiles {
   return JSON.parse(readFileSync(path, "utf-8"));
 }
 
+/**
+ * Atomic write: serialize to a sibling `.tmp` file then rename over the target.
+ * Prevents torn writes if the daemon and a concurrent plugin-triggered enrollment
+ * (via HTTP bridge) happen to save at nearly the same time — the worst case is
+ * last-writer-wins, never a truncated JSON file.
+ */
 export function saveProfiles(
   dataDir: string,
   profiles: SpeakerProfiles,
 ): void {
   const path = join(dataDir, PROFILES_FILE);
-  writeFileSync(path, JSON.stringify(profiles, null, 2));
+  const tmp = `${path}.tmp`;
+  try {
+    writeFileSync(tmp, JSON.stringify(profiles, null, 2));
+    renameSync(tmp, path);
+  } catch (err) {
+    // If the temp file got created but the rename failed, clean up so we don't
+    // leave stale `.tmp` files around.
+    if (existsSync(tmp)) {
+      try { unlinkSync(tmp); } catch { /* ignore */ }
+    }
+    throw err;
+  }
 }
 
 export function buildSpeakerMap(
