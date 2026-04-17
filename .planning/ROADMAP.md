@@ -12,7 +12,7 @@ This milestone wraps the existing PlaudNoteTaker CLI pipeline in a macOS menubar
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Shared Seams** — Refactor `src/config`, `src/log`, `src/state` with injection seams so CLI and future app can share code without divergence
+- [x] **Phase 1: Shared Seams** — Refactor `src/config`, `src/log`, `src/state` with injection seams so CLI and future app can share code without divergence
 - [ ] **Phase 2: Electron Shell — Signed, Notarized, Eagle-Verified** — Boot a signed+notarized `.app` with menubar icon, no Dock, that proves Eagle native module runs in Electron's main process
 - [ ] **Phase 3: Core Daemon — Migration, Config, Poll Loop, Settings, Logs** — App performs the full pipeline in the background with Keychain-stored keys, migrated state, live logs, and a configurable Settings window
 - [ ] **Phase 4: User Surface — Popover, Notifications, HTTP Bridge** — App feels like a native menubar tool (popover, notifications, status icon states) and exposes a loopback HTTP bridge for Obsidian
@@ -37,7 +37,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 1 plan (single refactor sweep; small, mechanical, verifiable by CLI regression test)
 
 Plans:
-- [ ] 01-01: Refactor `src/config` + `src/log` + `src/state` to introduce injection seams; verify CLI regression
+- [x] 01-01: Refactor `src/config` + `src/log` + `src/state` to introduce injection seams; verify CLI regression
 
 ---
 
@@ -140,7 +140,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 (decimal phases inser
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Shared Seams | 0/1 | Not started | - |
+| 1. Shared Seams | 1/1 | ✓ Complete | 2026-04-16 |
 | 2. Electron Shell — Signed, Notarized, Eagle-Verified | 0/2 | Not started | - |
 | 3. Core Daemon — Migration, Config, Poll Loop, Settings, Logs | 0/3 | Not started | - |
 | 4. User Surface — Popover, Notifications, HTTP Bridge | 0/3 | Not started | - |

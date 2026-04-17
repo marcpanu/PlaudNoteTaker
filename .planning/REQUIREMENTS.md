@@ -156,10 +156,10 @@ Each v1 requirement maps to exactly one phase. See `.planning/ROADMAP.md` for ph
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SHAR-01 | Phase 1 — Shared Seams | Pending |
-| SHAR-02 | Phase 1 — Shared Seams | Pending |
-| SHAR-03 | Phase 1 — Shared Seams | Pending |
-| SHAR-04 | Phase 1 — Shared Seams | Pending |
+| SHAR-01 | Phase 1 — Shared Seams | Complete |
+| SHAR-02 | Phase 1 — Shared Seams | Complete |
+| SHAR-03 | Phase 1 — Shared Seams | Complete |
+| SHAR-04 | Phase 1 — Shared Seams | Complete |
 | SCAF-01 | Phase 2 — Electron Shell | Pending |
 | SCAF-02 | Phase 2 — Electron Shell | Pending |
 | SCAF-03 | Phase 2 — Electron Shell | Pending |
