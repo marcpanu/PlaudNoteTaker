@@ -2,15 +2,18 @@
   "name": "plaud-note-taker",
   "version": "0.1.0",
   "description": "Plaud device audio → transcription/diarization → LLM summary → Obsidian vault",
-  "main": "dist/index.js",
+  "main": ".vite/build/main.js",
   "bin": {
     "plaud": "dist/index.js"
   },
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js start",
+    "cli:start": "node dist/index.js start",
     "dev": "tsx src/index.ts",
-    "plaud": "tsx src/index.ts"
+    "plaud": "tsx src/index.ts",
+    "forge:start": "electron-forge start",
+    "forge:package": "electron-forge package",
+    "forge:make": "electron-forge make"
   },
   "keywords": [],
   "author": "Marc Panu",
@@ -21,8 +24,17 @@
     "dotenv": "^17.4.2"
   },
   "devDependencies": {
+    "@electron-forge/cli": "^7.11.1",
+    "@electron-forge/maker-dmg": "^7.11.1",
+    "@electron-forge/maker-zip": "^7.11.1",
+    "@electron-forge/plugin-vite": "^7.11.1",
+    "@electron/notarize": "^3.1.1",
+    "@electron/rebuild": "^4.0.3",
     "@types/node": "^25.6.0",
+    "electron": "^41.2.1",
+    "ffmpeg-static": "^5.3.0",
     "tsx": "^4.21.0",
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.2",
+    "vite": "^8.0.8"
   }
 }

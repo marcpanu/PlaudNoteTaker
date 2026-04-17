@@ -9,3 +9,7 @@ data/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Electron Forge build artifacts
+.vite/
+out/
