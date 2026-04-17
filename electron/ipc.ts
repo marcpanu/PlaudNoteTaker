@@ -106,7 +106,10 @@ export type IpcChannel =
   | "window:open-settings"
   | "window:close-settings"
   | "window:open-logs"
-  | "window:close-logs";
+  | "window:close-logs"
+  | "window:resize-popover"
+  // app lifecycle
+  | "app:quit";
 
 // One-way events pushed from main → renderer (not request/reply).
 export type IpcEvent =
@@ -213,6 +216,11 @@ export type OpenLogsRequest = void;
 export type OpenLogsResponse = { ok: true };
 export type CloseLogsRequest = void;
 export type CloseLogsResponse = { ok: true };
+export interface ResizePopoverRequest { width: number; height: number }
+export interface ResizePopoverResponse { ok: boolean; width?: number; height?: number }
+
+export type QuitRequest = void;
+export type QuitResponse = { ok: true };
 
 // ---------- Bridge API exposed to renderer via contextBridge ----------
 // `window.plaudApi` is typed with this shape. Preload calls ipcRenderer.invoke(channel, payload)
@@ -257,6 +265,10 @@ export interface PlaudApi {
   closeSettings: () => Promise<CloseSettingsResponse>;
   openLogs: () => Promise<OpenLogsResponse>;
   closeLogs: () => Promise<CloseLogsResponse>;
+  resizePopover: (req: ResizePopoverRequest) => Promise<ResizePopoverResponse>;
+
+  // App lifecycle
+  quit: () => Promise<QuitResponse>;
 
   // Events (main → renderer push)
   onLog: (handler: (ev: RendererLogEvent) => void) => () => void; // returns unsubscribe

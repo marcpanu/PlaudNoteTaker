@@ -7,7 +7,7 @@
 import { app } from "electron";
 app.setName("Plaud Obsidian Note Taker");
 
-import { Tray, Menu, nativeImage, dialog } from "electron";
+import { Tray, nativeImage, dialog } from "electron";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
@@ -72,47 +72,15 @@ function createTray(): Tray {
   const t = new Tray(icon);
   t.setToolTip("Plaud Obsidian Note Taker");
 
-  // Right-click menu — deliberately minimal. The popover (left-click) is the
-  // primary interaction surface and already exposes Poll Now / Start-Stop /
-  // Settings / Logs. Right-click stays out of its way and only offers actions
-  // you can't easily get to from the popover: Show Popover (escape hatch),
-  // Preferences (Cmd-,), About, Quit. Per MBAR-04.
-  const contextMenu = Menu.buildFromTemplate([
-    {
-      label: "Show Popover",
-      click: () => { togglePopover(t); },
-    },
-    { type: "separator" },
-    {
-      label: "Preferences…",
-      accelerator: "CmdOrCtrl+,",
-      click: () => { openSettings(); },
-    },
-    {
-      label: `About ${app.name}`,
-      click: () => {
-        dialog.showMessageBox({
-          type: "info",
-          title: "About",
-          message: "Plaud Obsidian Note Taker",
-          detail: `Version ${app.getVersion()}\nBundle: ${process.execPath}`,
-          buttons: ["OK"],
-        });
-      },
-    },
-    { type: "separator" },
-    { role: "quit", label: "Quit" },
-  ]);
-  // IMPORTANT: do NOT call t.setContextMenu(contextMenu). On macOS, a tray with
-  // a context menu set shows it on EVERY click, including left-click — AND also
-  // fires the "click" event. Result: left-clicking shows both the popover and the
-  // context menu simultaneously. Instead, wire the menu to the right-click event
-  // manually via popUpContextMenu. Left-click stays clean for the popover.
+  // Single interaction surface: the popover. No right-click menu — every
+  // action the user needs (Poll Now, Start/Stop, Settings, Logs) lives in
+  // the popover. About content moved to the Settings > About tab. Quit via
+  // Cmd-Q (registered through the application menu by registerSettingsShortcut).
   t.on("click", () => {
     togglePopover(t);
   });
   t.on("right-click", () => {
-    t.popUpContextMenu(contextMenu);
+    togglePopover(t);
   });
 
   return t;

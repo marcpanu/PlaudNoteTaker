@@ -43,14 +43,24 @@
 }
 
 html, body {
-  width: 320px;
+  /* Content fills whatever size the main process sets on the window.
+     Window dimensions clamped to [320, 960] × [200, 800] in popover-window.ts. */
+  width: 100%;
+  height: 100%;
   font-family: var(--font);
   font-size: 13px;
   color: var(--text);
   background: var(--surface);
   -webkit-font-smoothing: antialiased;
-  /* No fixed height — popover height fits content */
   overflow: hidden;
+}
+
+/* Body is a flex column so header/notes-section/footer stack and the
+   notes-section flexes to fill remaining height, scrolling internally
+   when content exceeds the available space. */
+body {
+  display: flex;
+  flex-direction: column;
 }
 
 /* ---- Header ---- */
@@ -93,7 +103,11 @@ html, body {
 
 /* ---- Notes section ---- */
 .notes-section {
-  max-height: 340px;
+  /* Let the window drive height (main clamps to [200, 800]). When content
+     exceeds what the window can show, the notes list scrolls inside the
+     section while header + footer stay pinned. */
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
   background: var(--surface);
 }
@@ -123,6 +137,7 @@ html, body {
   border-bottom: none;
 }
 
+/* Line 1: filename — prominent, normal weight, full text color */
 .note-row__name {
   font-size: 12.5px;
   font-weight: 500;
@@ -132,10 +147,22 @@ html, body {
   text-overflow: ellipsis;
 }
 
+/* Line 2: directory path — smaller, muted */
+.note-row__path {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
 .note-row__meta {
   display: flex;
   align-items: center;
   gap: 6px;
+  margin-top: 3px;
   font-size: 11px;
   color: var(--text-secondary);
 }
@@ -257,6 +284,17 @@ html, body {
   .btn--ghost:not(:disabled):hover {
     background: rgba(255,255,255,.06);
   }
+}
+
+/* Quit button — ghost variant that turns red on hover to signal destructive. */
+.btn--danger {
+  color: var(--text-secondary);
+}
+
+.btn--danger:not(:disabled):hover {
+  background: rgba(255, 59, 48, 0.08);
+  color: var(--danger);
+  border-color: rgba(255, 59, 48, 0.3);
 }
 
 .btn--sm {

@@ -22,6 +22,7 @@ const btnPollNow = document.getElementById("btn-poll-now") as HTMLButtonElement;
 const btnToggleDaemon = document.getElementById("btn-toggle-daemon") as HTMLButtonElement;
 const btnSettings = document.getElementById("btn-settings") as HTMLButtonElement;
 const btnLogs = document.getElementById("btn-logs") as HTMLButtonElement;
+const btnQuit = document.getElementById("btn-quit") as HTMLButtonElement;
 
 // ── State ──────────────────────────────────────────────────────────────────────
 
@@ -51,6 +52,34 @@ function relativeTime(isoString: string): string {
 
 // ── Notes rendering ────────────────────────────────────────────────────────────
 
+/**
+ * Split a vault-relative note path into a display pair:
+ *   `01 Current Projects/Peregrine Integration/2026-04-17 Q2 Review.md`
+ * becomes:
+ *   filename: `Q2 Review.md`
+ *   dirPath:  `01 Current Projects/Peregrine Integration/2026-04-17`
+ *
+ * When the basename starts with a `YYYY-MM-DD ` date prefix (our writer's
+ * convention), the date is lifted to the end of the directory line so the
+ * filename shows just the meaningful title.
+ */
+function splitNoteDisplay(fullPath: string): { filename: string; dirPath: string } {
+  const slash = fullPath.lastIndexOf("/");
+  const dir = slash >= 0 ? fullPath.slice(0, slash) : "";
+  const basename = slash >= 0 ? fullPath.slice(slash + 1) : fullPath;
+
+  const dateMatch = basename.match(/^(\d{4}-\d{2}-\d{2}) (.+)$/);
+  if (dateMatch) {
+    const date = dateMatch[1];
+    const rest = dateMatch[2];
+    return {
+      filename: rest,
+      dirPath: dir ? `${dir}/${date}` : date,
+    };
+  }
+  return { filename: basename, dirPath: dir };
+}
+
 function renderNotes(notes: RecentNote[]): void {
   notesList.innerHTML = "";
 
@@ -68,12 +97,20 @@ function renderNotes(notes: RecentNote[]): void {
     row.className = "note-row";
     row.setAttribute("role", "button");
     row.setAttribute("tabindex", "0");
+    row.title = note.filePath;
 
-    const name = document.createElement("div");
-    name.className = "note-row__name";
-    // Show vault-relative path if available, fall back to recording name
-    name.textContent = note.vaultRelativePath || note.recordingName;
-    name.title = note.filePath;
+    const full = note.vaultRelativePath || note.recordingName;
+    const { filename, dirPath } = splitNoteDisplay(full);
+
+    // Line 1: filename (prominent)
+    const nameEl = document.createElement("div");
+    nameEl.className = "note-row__name";
+    nameEl.textContent = filename;
+
+    // Line 2: directory path (muted, smaller)
+    const pathEl = document.createElement("div");
+    pathEl.className = "note-row__path";
+    pathEl.textContent = dirPath;
 
     const meta = document.createElement("div");
     meta.className = "note-row__meta";
@@ -88,7 +125,8 @@ function renderNotes(notes: RecentNote[]): void {
 
     meta.appendChild(time);
     meta.appendChild(status);
-    row.appendChild(name);
+    row.appendChild(nameEl);
+    if (dirPath) row.appendChild(pathEl);
     row.appendChild(meta);
 
     // Click → open in Obsidian
@@ -108,6 +146,58 @@ function renderNotes(notes: RecentNote[]): void {
 
     notesList.appendChild(row);
   }
+
+  // After layout settles, ask main to resize the popover to fit the longest
+  // visible note name (title paths can get quite long). requestAnimationFrame
+  // ensures scrollWidth reflects the just-inserted content.
+  requestAnimationFrame(() => {
+    resizePopoverToFit();
+  });
+}
+
+/**
+ * Measure the intrinsic content size and ask main to resize the window.
+ * Width: widest note-row__name + padding.
+ * Height: body.scrollHeight with the notes section's max-height lifted so
+ *         intrinsic height is visible to the measurement.
+ * Main clamps width to [320, 960] and height to [200, 800].
+ */
+function resizePopoverToFit(): void {
+  if (typeof window.plaudApi.resizePopover !== "function") return;
+
+  // Width — intrinsic text width of the widest visible line across all rows
+  // (filename or path — each on its own line, but they share the same row width).
+  const textEls = notesList.querySelectorAll<HTMLElement>(
+    ".note-row__name, .note-row__path",
+  );
+  let maxTextWidth = 0;
+  const prev: string[] = [];
+  textEls.forEach((el, i) => {
+    prev[i] = el.style.whiteSpace;
+    el.style.whiteSpace = "nowrap";
+    maxTextWidth = Math.max(maxTextWidth, el.scrollWidth);
+  });
+  textEls.forEach((el, i) => {
+    el.style.whiteSpace = prev[i] ?? "";
+  });
+
+  // Height — briefly lift the notes-section max-height so the body's true
+  // intrinsic height is visible to the measurement, then restore.
+  const notesSection = document.querySelector<HTMLElement>(".notes-section");
+  const prevMaxHeight = notesSection?.style.maxHeight ?? "";
+  if (notesSection) notesSection.style.maxHeight = "none";
+  const intrinsicHeight = document.body.scrollHeight;
+  if (notesSection) notesSection.style.maxHeight = prevMaxHeight;
+
+  const desiredWidth = maxTextWidth + 48;
+  // Height already includes header + list + footer. No extra padding needed.
+  const desiredHeight = intrinsicHeight;
+
+  window.plaudApi
+    .resizePopover({ width: desiredWidth, height: desiredHeight })
+    .catch((err) => {
+      console.error("[popover] resizePopover error:", err);
+    });
 }
 
 // ── Daemon state rendering ─────────────────────────────────────────────────────
@@ -184,27 +274,21 @@ btnToggleDaemon.addEventListener("click", () => {
 // ── Settings / Logs buttons ───────────────────────────────────────────────────
 
 btnSettings.addEventListener("click", () => {
-  const api = window.plaudApi;
-  if (typeof api.openSettings === "function") {
-    api.openSettings().catch((err) => {
-      console.error("[popover] openSettings error:", err);
-    });
-  } else {
-    // Fallback: open-settings via window:open-settings channel is handled
-    // in ipc-handlers.ts; preload should expose this method.
-    console.warn("[popover] openSettings not available on plaudApi");
-  }
+  window.plaudApi.openSettings().catch((err) => {
+    console.error("[popover] openSettings error:", err);
+  });
 });
 
 btnLogs.addEventListener("click", () => {
-  const api = window.plaudApi;
-  if (typeof api.openLogs === "function") {
-    api.openLogs().catch((err) => {
-      console.error("[popover] openLogs error:", err);
-    });
-  } else {
-    console.warn("[popover] openLogs not available on plaudApi");
-  }
+  window.plaudApi.openLogs().catch((err) => {
+    console.error("[popover] openLogs error:", err);
+  });
+});
+
+btnQuit.addEventListener("click", () => {
+  window.plaudApi.quit().catch((err) => {
+    console.error("[popover] quit error:", err);
+  });
 });
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────

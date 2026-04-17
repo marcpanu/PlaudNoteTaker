@@ -3,7 +3,7 @@
  * Imported and called once from main.ts after app.whenReady().
  */
 
-import { ipcMain, dialog, shell } from "electron";
+import { app, ipcMain, dialog, shell } from "electron";
 import type {
   SetConfigRequest,
   TestConnectionRequest,
@@ -292,6 +292,13 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle("window:close-logs", async () => {
     closeLogs();
+    return { ok: true };
+  });
+
+  // ── App lifecycle ────────────────────────────────────────────────────────────
+
+  ipcMain.handle("app:quit", async () => {
+    app.quit();
     return { ok: true };
   });
 }

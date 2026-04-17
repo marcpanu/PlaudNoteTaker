@@ -57,8 +57,15 @@ const plaudApi: PlaudApi = {
   dismissMigration: () => ipcRenderer.invoke("migration:dismiss"),
 
   // ---- Windows ----
+  openSettings: () => ipcRenderer.invoke("window:open-settings"),
   closeSettings: () => ipcRenderer.invoke("window:close-settings"),
+  openLogs: () => ipcRenderer.invoke("window:open-logs"),
   closeLogs: () => ipcRenderer.invoke("window:close-logs"),
+  resizePopover: (req: { width: number; height: number }) =>
+    ipcRenderer.invoke("window:resize-popover", req),
+
+  // ---- App lifecycle ----
+  quit: () => ipcRenderer.invoke("app:quit"),
 
   // ---- Push events (main → renderer) ----
   onLog: (handler: (ev: RendererLogEvent) => void) => {
