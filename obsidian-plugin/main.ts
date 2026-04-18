@@ -75,6 +75,16 @@ interface AssemblyAITranscriptResponse {
 
 const SPEAKER_VIEW_TYPE = "ai-notetaker-speakers";
 
+/**
+ * Sentinels that delimit the in-progress live transcript block in the editor.
+ * Used instead of stored {line, ch} positions (which become stale when the user
+ * types above the block during recording — pre-existing bug). `indexOf(...)` on
+ * the current editor content locates the block regardless of where it shifted to.
+ * Both render as invisible HTML comments in Reading View.
+ */
+const LIVE_START_SENTINEL = "<!-- plaud-live-start -->";
+const LIVE_END_SENTINEL = "<!-- plaud-live-end -->";
+
 // ---------------------------------------------------------------------------
 // Plugin
 // ---------------------------------------------------------------------------
@@ -474,6 +484,62 @@ registerProcessor('pcm-capture-processor-bridge', PCMCaptureProcessor);
 		this.pcmBuffer = new Int16Array(0);
 	}
 
+	// -- Live transcript block helpers (content-search, edit-robust) ---------
+
+	/** Insert text immediately before the live-end sentinel. No-op if the sentinel is missing. */
+	private appendLive(editor: Editor, text: string): void {
+		const content = editor.getValue();
+		const endIdx = content.indexOf(LIVE_END_SENTINEL);
+		if (endIdx < 0) return;
+		const pos = editor.offsetToPos(endIdx);
+		editor.replaceRange(text, pos);
+	}
+
+	/**
+	 * Replace the last `partialLen` chars before the live-end sentinel with `newText`.
+	 * Used by the streaming turn handler to update the in-flight partial in place.
+	 */
+	private replaceLivePartial(editor: Editor, partialLen: number, newText: string): void {
+		const content = editor.getValue();
+		const endIdx = content.indexOf(LIVE_END_SENTINEL);
+		if (endIdx < 0) return;
+		const from = editor.offsetToPos(endIdx - partialLen);
+		const to = editor.offsetToPos(endIdx);
+		editor.replaceRange(newText, from, to);
+	}
+
+	/**
+	 * Locate the full live-transcript block (the header line through the end
+	 * sentinel's trailing newline) and replace it with `finalText` in one edit.
+	 * Called when the final cleaned transcript is ready, so the user sees the
+	 * live block stay in place during "transcribing / generating…" and swap
+	 * atomically when the final note is inserted.
+	 *
+	 * Returns true if the block was found and replaced; false if no streaming
+	 * block was ever inserted (non-streaming path) — caller should fall back
+	 * to inserting at the cursor.
+	 */
+	private replaceLiveTranscriptBlock(editor: Editor, finalText: string): boolean {
+		const content = editor.getValue();
+		// The block starts at the `\n\n---` header that immediately precedes
+		// `*Live transcript:*`. Using the start sentinel would be more robust
+		// but the header is visible to users so we search for the stable
+		// composite string instead.
+		const headerPattern = "\n\n---\n*Live transcript:*\n" + LIVE_START_SENTINEL;
+		const headerIdx = content.indexOf(headerPattern);
+		const endIdx = content.indexOf(LIVE_END_SENTINEL);
+		if (headerIdx < 0 || endIdx < 0 || endIdx < headerIdx) return false;
+
+		// Include the sentinel itself and its trailing newline (if any).
+		let blockEnd = endIdx + LIVE_END_SENTINEL.length;
+		if (content[blockEnd] === "\n") blockEnd += 1;
+
+		const from = editor.offsetToPos(headerIdx);
+		const to = editor.offsetToPos(blockEnd);
+		editor.replaceRange(finalText, from, to);
+		return true;
+	}
+
 	// -- Streaming transcription ---------------------------------------------
 
 	private async startStreamingTranscription(stream: MediaStream, editor: Editor) {
@@ -485,52 +551,47 @@ registerProcessor('pcm-capture-processor-bridge', PCMCaptureProcessor);
 			this.streamingSocket = new WebSocket(wsUrl);
 			this.streamingEditor = editor;
 
-			// Mark the insert position in the editor
+			// Insert the streaming block at the cursor, delimited by start/end
+			// sentinels. All further streaming operations locate the end
+			// sentinel via content.indexOf(), so they stay correct regardless
+			// of what the user types elsewhere in the note during recording.
+			//
+			// Block shape:
+			//     \n\n---
+			//     *Live transcript:*
+			//     <!-- plaud-live-start -->
+			//     <streamed content>
+			//     <!-- plaud-live-end -->
 			const cursor = editor.getCursor();
-			const header = "\n\n---\n*Live transcript:*\n\n";
-			editor.replaceRange(header, cursor);
-			this.streamingInsertPos = { line: cursor.line, ch: cursor.ch };
-			this.streamingText = header;
+			const block =
+				`\n\n---\n*Live transcript:*\n${LIVE_START_SENTINEL}\n` +
+				`${LIVE_END_SENTINEL}\n`;
+			editor.replaceRange(block, cursor);
 
-			// Track the current partial turn text so we can update it in-place
-			let currentPartial = "";
+			// Length of the currently-displayed partial (un-finalized) turn.
+			// Partials are the last N characters immediately before LIVE_END_SENTINEL.
+			let currentPartialLen = 0;
 
 			this.streamingSocket.onmessage = (event) => {
 				const msg = JSON.parse(event.data);
 				if (msg.type === "Turn" && msg.transcript) {
 					if (msg.end_of_turn) {
-						// Final turn — remove partial and append final line
-						if (currentPartial.length > 0) {
-							const partialStart = editor.posToOffset(this.streamingInsertPos!) + this.streamingText.length - currentPartial.length;
-							const from = editor.offsetToPos(partialStart);
-							const to = editor.offsetToPos(partialStart + currentPartial.length);
-							editor.replaceRange("", from, to);
-							this.streamingText = this.streamingText.slice(0, -currentPartial.length);
-							currentPartial = "";
+						// Remove any in-flight partial then append the final line.
+						if (currentPartialLen > 0) {
+							this.replaceLivePartial(editor, currentPartialLen, "");
+							currentPartialLen = 0;
 						}
-						const line = msg.transcript + "\n";
-						const insertOffset = editor.posToOffset(this.streamingInsertPos!) + this.streamingText.length;
-						const insertPos = editor.offsetToPos(insertOffset);
-						editor.replaceRange(line, insertPos);
-						this.streamingText += line;
+						this.appendLive(editor, msg.transcript + "\n");
 					} else {
-						// Partial turn — update in place
+						// Update in place — replace the existing partial chars with the new partial.
 						const newPartial = msg.transcript;
-						if (currentPartial.length > 0) {
-							const partialStart = editor.posToOffset(this.streamingInsertPos!) + this.streamingText.length - currentPartial.length;
-							const from = editor.offsetToPos(partialStart);
-							const to = editor.offsetToPos(partialStart + currentPartial.length);
-							editor.replaceRange(newPartial, from, to);
-							this.streamingText = this.streamingText.slice(0, -currentPartial.length) + newPartial;
+						if (currentPartialLen > 0) {
+							this.replaceLivePartial(editor, currentPartialLen, newPartial);
 						} else {
-							const insertOffset = editor.posToOffset(this.streamingInsertPos!) + this.streamingText.length;
-							const insertPos = editor.offsetToPos(insertOffset);
-							editor.replaceRange(newPartial, insertPos);
-							this.streamingText += newPartial;
+							this.appendLive(editor, newPartial);
 						}
-						currentPartial = newPartial;
+						currentPartialLen = newPartial.length;
 
-						// Update status bar with preview
 						const preview = newPartial.length > 50 ? newPartial.slice(0, 50) + "…" : newPartial;
 						this.setStatusBar(`🔴 ${preview}`);
 					}
@@ -628,12 +689,11 @@ registerProcessor('streaming-send-processor', StreamingSendProcessor);
 
 		const fullPcm = this.fullPcmRecording;
 
-		// Capture streaming state before cleanup
-		const hadStreaming = this.streamingSocket !== null;
-		const streamingStartPos = this.streamingInsertPos;
-		const streamingLen = this.streamingText.length;
-
-		// Stop streaming
+		// Stop the streaming socket (so no more turns come in) but leave the
+		// live transcript BLOCK in place in the editor. It stays visible during
+		// the "transcribing / generating note" phase and is replaced atomically
+		// once the final transcript is ready (see transcribeAndInsert's final
+		// markdown insertion, which calls replaceLiveTranscriptBlock).
 		this.stopStreamingTranscription();
 
 		this.mediaRecorder.onstop = async () => {
@@ -648,14 +708,6 @@ registerProcessor('streaming-send-processor', StreamingSendProcessor);
 			this.refreshSpeakerPanel();
 
 			this.stopAudioCapture();
-
-			// If we had streaming, remove the live transcript before inserting final
-			if (hadStreaming && streamingStartPos && streamingLen > 0) {
-				const startOffset = editor.posToOffset(streamingStartPos);
-				const from = editor.offsetToPos(startOffset);
-				const to = editor.offsetToPos(startOffset + streamingLen);
-				editor.replaceRange("", from, to);
-			}
 
 			await this.transcribeAndInsert(audioBlob, editor, fullPcm);
 		};
@@ -716,9 +768,17 @@ registerProcessor('streaming-send-processor', StreamingSendProcessor);
 				}
 			}
 
-			// Build and insert final markdown
+			// Build the final markdown. If a streaming live-transcript block is
+			// present in the note (user had streaming enabled), replace the
+			// whole block atomically with the final markdown — this is what
+			// swaps the "*Live transcript:*" section for the cleaned, diarized
+			// version. If no streaming block exists (streaming was off), fall
+			// back to inserting at the current cursor position.
 			const markdown = this.buildMarkdown(transcriptText, geminiOutput, speakerMap);
-			this.insertIntoEditor(editor, markdown);
+			const replaced = this.replaceLiveTranscriptBlock(editor, markdown);
+			if (!replaced) {
+				this.insertIntoEditor(editor, markdown);
+			}
 
 			// Store for the auto-popup (and for deferred sidebar-button flow if the
 			// user dismisses the popup and comes back later in the same session).
@@ -749,7 +809,14 @@ registerProcessor('streaming-send-processor', StreamingSendProcessor);
 			console.error("AI Notetaker error:", err);
 			const message = err instanceof Error ? err.message : String(err);
 			const errorBlock = `\n> ⚠️ Transcription failed: ${message}\n`;
-			this.insertIntoEditor(editor, errorBlock);
+			// If a live-transcript block is still sitting in the note from a
+			// streaming session, replace it with the error. Otherwise insert
+			// at the cursor. Same atomic-swap pattern as the success path —
+			// user never sees both a live block and an error at once.
+			const replaced = this.replaceLiveTranscriptBlock(editor, errorBlock);
+			if (!replaced) {
+				this.insertIntoEditor(editor, errorBlock);
+			}
 			this.setStatusBar("");
 			new Notice(`AI Notetaker: Transcription failed — ${message}`);
 		}
