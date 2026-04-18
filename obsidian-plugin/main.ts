@@ -111,6 +111,15 @@ export default class AINotetakerPlugin extends Plugin {
 	// Cache of enrolled speaker names (refreshed from bridge)
 	enrolledSpeakerNames: string[] = [];
 
+	// Remembered reference to the most recently focused MarkdownView's editor.
+	// Needed because clicking anything inside the Speaker Panel sidebar shifts
+	// focus to a non-markdown view, which makes getActiveViewOfType(MarkdownView)
+	// return null at the moment a sidebar button handler runs. Without this
+	// fallback, recording triggered from the sidebar lands its streaming and
+	// final transcript in whatever markdown leaf iterateAllLeaves happens to
+	// find first — usually not the one the user was actually looking at.
+	private lastActiveMarkdownEditor: Editor | null = null;
+
 	// PCM capture internals
 	private pcmAudioContext: AudioContext | null = null;
 	private pcmWorkletNode: AudioWorkletNode | null = null;
@@ -166,6 +175,24 @@ export default class AINotetakerPlugin extends Plugin {
 		});
 
 		this.addSettingTab(new AINotetakerSettingTab(this.app, this));
+
+		// Track the most recently focused MarkdownView's editor. Used by
+		// getMarkdownEditor() as a fallback so sidebar-triggered recording
+		// knows which note the user was actually looking at before they
+		// clicked into the sidebar (which shifts focus away from the note).
+		this.registerEvent(
+			this.app.workspace.on("active-leaf-change", (leaf) => {
+				if (leaf?.view instanceof MarkdownView) {
+					this.lastActiveMarkdownEditor = leaf.view.editor;
+				}
+			}),
+		);
+		// Initial capture — if a markdown view is already active when the
+		// plugin loads, remember its editor so first-run recording works too.
+		const initialView = this.app.workspace.getActiveViewOfType(MarkdownView);
+		if (initialView) {
+			this.lastActiveMarkdownEditor = initialView.editor;
+		}
 
 		// Ribbon icon — toggles recording
 		this.ribbonIconEl = this.addRibbonIcon("mic", "AI Notetaker: Record", () => {
@@ -266,10 +293,16 @@ export default class AINotetakerPlugin extends Plugin {
 
 	/** Find the most recent MarkdownView editor, even if a sidebar panel is focused. */
 	getMarkdownEditor(): Editor | null {
-		// Try active view first
+		// Preferred: active markdown view (user is currently focused there).
 		const active = this.app.workspace.getActiveViewOfType(MarkdownView);
 		if (active) return active.editor;
-		// Fall back: iterate all leaves and find one with an editor
+		// Fallback 1: last-active markdown editor we remembered via the
+		// active-leaf-change event listener. Covers the sidebar-button case —
+		// clicking inside the Speaker Panel shifts active view off the
+		// markdown editor, but we kept the editor reference from before.
+		if (this.lastActiveMarkdownEditor) return this.lastActiveMarkdownEditor;
+		// Fallback 2 (legacy): iterate all leaves. Used only if the plugin
+		// was loaded and no markdown view has ever been active.
 		let mdEditor: Editor | null = null;
 		this.app.workspace.iterateAllLeaves((leaf) => {
 			if (!mdEditor && leaf.view.getViewType() === "markdown") {
