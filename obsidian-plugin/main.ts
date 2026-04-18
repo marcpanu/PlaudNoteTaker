@@ -76,14 +76,14 @@ interface AssemblyAITranscriptResponse {
 const SPEAKER_VIEW_TYPE = "ai-notetaker-speakers";
 
 /**
- * Sentinels that delimit the in-progress live transcript block in the editor.
- * Used instead of stored {line, ch} positions (which become stale when the user
- * types above the block during recording — pre-existing bug). `indexOf(...)` on
- * the current editor content locates the block regardless of where it shifted to.
- * Both render as invisible HTML comments in Reading View.
+ * Marker for the end of the in-progress live transcript block in the editor.
+ * The block's START is identified by its visible header `\n\n---\n*Live transcript:*\n`
+ * (unique enough on its own — no hidden start sentinel needed). This END marker
+ * is an invisible HTML comment. All block operations locate it via
+ * content.indexOf() so they remain correct regardless of user edits elsewhere
+ * in the note during recording.
  */
-const LIVE_START_SENTINEL = "<!-- plaud-live-start -->";
-const LIVE_END_SENTINEL = "<!-- plaud-live-end -->";
+const LIVE_END_SENTINEL = "<!-- live-transcript-end -->";
 
 // ---------------------------------------------------------------------------
 // Plugin
@@ -521,12 +521,11 @@ registerProcessor('pcm-capture-processor-bridge', PCMCaptureProcessor);
 	 */
 	private replaceLiveTranscriptBlock(editor: Editor, finalText: string): boolean {
 		const content = editor.getValue();
-		// The block starts at the `\n\n---` header that immediately precedes
-		// `*Live transcript:*`. Using the start sentinel would be more robust
-		// but the header is visible to users so we search for the stable
-		// composite string instead.
-		const headerPattern = "\n\n---\n*Live transcript:*\n" + LIVE_START_SENTINEL;
-		const headerIdx = content.indexOf(headerPattern);
+		// Block starts at the visible `\n\n---\n*Live transcript:*\n` header.
+		// Ends at the invisible sentinel. Both are searched via indexOf()
+		// against current content so user edits elsewhere don't break them.
+		const HEADER = "\n\n---\n*Live transcript:*\n";
+		const headerIdx = content.indexOf(HEADER);
 		const endIdx = content.indexOf(LIVE_END_SENTINEL);
 		if (headerIdx < 0 || endIdx < 0 || endIdx < headerIdx) return false;
 
@@ -551,21 +550,20 @@ registerProcessor('pcm-capture-processor-bridge', PCMCaptureProcessor);
 			this.streamingSocket = new WebSocket(wsUrl);
 			this.streamingEditor = editor;
 
-			// Insert the streaming block at the cursor, delimited by start/end
-			// sentinels. All further streaming operations locate the end
-			// sentinel via content.indexOf(), so they stay correct regardless
-			// of what the user types elsewhere in the note during recording.
+			// Insert the streaming block at the cursor. The visible header
+			// (`---` + `*Live transcript:*`) marks the start; the invisible
+			// HTML-comment sentinel marks the end. All further streaming
+			// operations find the end sentinel via content.indexOf() so they
+			// stay correct regardless of what the user types elsewhere in the
+			// note during recording.
 			//
 			// Block shape:
 			//     \n\n---
 			//     *Live transcript:*
-			//     <!-- plaud-live-start -->
 			//     <streamed content>
-			//     <!-- plaud-live-end -->
+			//     <!-- live-transcript-end -->
 			const cursor = editor.getCursor();
-			const block =
-				`\n\n---\n*Live transcript:*\n${LIVE_START_SENTINEL}\n` +
-				`${LIVE_END_SENTINEL}\n`;
+			const block = `\n\n---\n*Live transcript:*\n\n${LIVE_END_SENTINEL}\n`;
 			editor.replaceRange(block, cursor);
 
 			// Length of the currently-displayed partial (un-finalized) turn.
